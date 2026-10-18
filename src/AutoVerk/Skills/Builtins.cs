@@ -16,6 +16,7 @@ namespace AutoVerk.Skills
                 Description = "Do nothing for some seconds.",
                 Params = { Param.Number("seconds", "how long", 3) },
                 Create = args => new Wait(args.Number("seconds")),
+                ForDevelopers = true,
             });
             Registry.Register(new SkillInfo
             {
@@ -23,6 +24,7 @@ namespace AutoVerk.Skills
                 Description = "Walk or run straight ahead some metres.",
                 Params = { Param.Number("ahead", "metres in front of you", 10), Param.Bool("run", "run instead of walking") },
                 Create = args => new MoveTo(Ahead(args.Number("ahead")), run: args.Bool("run")),
+                ForDevelopers = true,
             });
             Registry.Register(new SkillInfo
             {
@@ -30,12 +32,14 @@ namespace AutoVerk.Skills
                 Description = "Equip an item from the inventory.",
                 Params = { Param.Item("item", "item id, like AxeStone") },
                 Create = args => new Equip(args.Item("item")),
+                ForDevelopers = true,
             });
             Registry.Register(new SkillInfo
             {
                 Id = "rest",
                 Description = "Stand still until stamina is full.",
                 Create = args => new Rest(),
+                ForDevelopers = true,
             });
             Registry.Register(new SkillInfo
             {
@@ -50,6 +54,7 @@ namespace AutoVerk.Skills
                         : Senses.Nearest<Character>(radius, Senses.IsEnemy);
                     return new Strike(target);
                 },
+                ForDevelopers = true,
             });
             Registry.Register(new SkillInfo
             {
@@ -57,12 +62,13 @@ namespace AutoVerk.Skills
                 Description = "Place a piece from the tool in hand a few metres ahead.",
                 Params = { Param.Text("piece", "piece id, like wood_floor"), Param.Number("ahead", "metres in front of you", 2) },
                 Create = args => new Place(args.Text("piece"), Ahead(args.Number("ahead"))),
+                ForDevelopers = true,
             });
             Registry.Register(new SkillInfo
             {
                 Id = "pick",
-                Description = "Walk to the nearest pickable (berries, stones, crops) and pick it.",
-                Params = { Param.Number("radius", "metres", 20), Param.Item("item", "only this item, like Raspberry", "") },
+                Description = "Pick everything around you that can be picked: berries, mushrooms, stones, ripe crops.",
+                Params = { Param.Number("radius", "metres", 20), Param.Item("item", "only this, like Raspberry", "") },
                 Create = args => new Pick(args.Number("radius"), args.Item("item")),
             });
             Registry.Register(new SkillInfo

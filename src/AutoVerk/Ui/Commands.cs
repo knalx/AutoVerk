@@ -9,7 +9,7 @@ namespace AutoVerk.Ui
     internal static class Commands
     {
         private const string Name = "autoverk";
-        private const string Usage = "autoverk skills | run <skill> [name=value …] | pause | resume | stop | status";
+        private const string Usage = "autoverk skills [all] | run <skill> [name=value …] | pause | resume | stop | status";
 
         public static void Register(Plugin plugin)
         {
@@ -28,7 +28,10 @@ namespace AutoVerk.Ui
             switch (verb)
             {
                 case "skills":
-                    foreach (var s in Registry.Skills) print($"{s.Usage}  · {s.Description}");
+                    bool all = args.Args.Length > 2 && args.Args[2] == "all";
+                    foreach (var s in all ? Registry.AllSkills : Registry.Skills)
+                        print($"{s.Usage}  · {(s.ForDevelopers ? "(dev) " : "")}{s.Description}");
+                    if (!all) print("'autoverk skills all' lists the developer skills too");
                     break;
                 case "run":
                     var line = string.Join(" ", args.Args.Skip(2));

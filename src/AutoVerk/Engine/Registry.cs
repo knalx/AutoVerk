@@ -48,6 +48,12 @@ namespace AutoVerk.Engine
         public List<Param> Params { get; } = new List<Param>();
         public Func<Args, Skill> Create { get; set; }
 
+        /// <summary>
+        /// A building block to test from the console (move_to, strike), not a job for the player: left out of the
+        /// window and of <c>autoverk skills</c>, listed by <c>autoverk skills all</c>.
+        /// </summary>
+        public bool ForDevelopers { get; set; }
+
         public string Usage => string.Join(" ", new[] { Id }.Concat(Params.Select(p => p.ToString())));
     }
 
@@ -172,7 +178,11 @@ namespace AutoVerk.Engine
 
         public static SkillInfo Find(string id) => id != null && ById.TryGetValue(id, out var info) ? info : null;
 
-        public static IEnumerable<SkillInfo> Skills => ById.Values.OrderBy(s => s.Id);
+        /// <summary>The skills for the player, by id.</summary>
+        public static IEnumerable<SkillInfo> Skills => AllSkills.Where(s => !s.ForDevelopers);
+
+        /// <summary>The player's skills and the developers' ones, by id.</summary>
+        public static IEnumerable<SkillInfo> AllSkills => ById.Values.OrderBy(s => s.Id);
 
         public static IReadOnlyList<Reflex> Reflexes => ReflexList;
 

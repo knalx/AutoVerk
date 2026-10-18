@@ -71,6 +71,28 @@ namespace AutoVerk.Tests
         }
 
         [Fact]
+        public void LeavesOutDeveloperSkills()
+        {
+            Registry.Register(new SkillInfo { Id = "test.dev", Create = _ => new Wait(1), ForDevelopers = true });
+            try
+            {
+                Assert.DoesNotContain(Registry.Skills, s => s.Id == "test.dev");
+                Assert.Contains(Registry.AllSkills, s => s.Id == "test.dev");
+                Assert.NotNull(Registry.FromLine("test.dev", out _));
+
+                var form = new SkillForm();
+                form.Refresh();
+                form.Restore("test.dev");
+                Assert.NotEqual("test.dev", form.Skill?.Id);
+                Assert.DoesNotContain(form.Skills, s => s.Id == "test.dev");
+            }
+            finally
+            {
+                Registry.Unregister("test.dev");
+            }
+        }
+
+        [Fact]
         public void ACreateThatThrowsBecomesAnError()
         {
             Registry.Register(new SkillInfo { Id = "test.throws", Create = _ => throw new System.InvalidOperationException("not in a world") });

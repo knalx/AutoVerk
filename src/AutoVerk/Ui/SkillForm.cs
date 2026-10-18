@@ -85,7 +85,7 @@ namespace AutoVerk.Ui
         {
             var id = Args.ParseLine(line, out var values, out _);
             var info = Registry.Find(id);
-            if (info == null) return;
+            if (info == null || info.ForDevelopers) return;
             if (Skills.Count == 0) Refresh();
             _id = id;
             foreach (var p in info.Params)
