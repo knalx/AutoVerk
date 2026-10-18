@@ -94,13 +94,14 @@ Registry.Register(new SkillInfo
 Registry.Register(new HealWhenLow());
 ```
 
-Registered skills appear in the window and the console. Prefix ids with your mod's name. To offer values
-in a dropdown, add `.WithSuggestions(() => seeds, "anything")` to a parameter; the second argument names
-the empty value, if it means something. A building block
-that's no job on its own, like `move_to`, gets `ForDevelopers = true`: it stays out of the window and runs
-from the console for testing (`autoverk skills all` lists it). Do this from
+Registered skills appear in the window and the console. Prefix ids with your mod's name. Do this from
 your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`; see
 [`examples/HelloSkill`](../examples/HelloSkill).
+
+- A building block that's no job on its own, like `move_to`, gets `ForDevelopers = true`: it stays out of
+  the window and runs from the console for testing (`autoverk skills all` lists it).
+- To offer values in a dropdown, add `.WithSuggestions(() => seeds, "anything")` to a parameter; the second
+  argument names the empty value, if it means something.
 
 ## Failure codes
 

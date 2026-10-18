@@ -71,7 +71,8 @@ namespace AutoVerk.Game
             var player = Player.m_localPlayer;
             if (!Body.Active || player == null || __instance.gameObject != player.gameObject) return;
 
-            if (Body.LookTarget != null) Face(player, Body.LookTarget.Value, Body.Tilt);
+            // Walking turns toward where it goes below; facing is for standing still (striking, placing).
+            if (Body.LookTarget != null && Body.WalkTarget == null) Face(player, Body.LookTarget.Value, Body.Tilt);
             var move = Vector3.zero;
             if (Body.WalkTarget != null)
             {
