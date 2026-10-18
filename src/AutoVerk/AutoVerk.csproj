@@ -1,0 +1,53 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>AutoVerk</AssemblyName>
+    <RootNamespace>AutoVerk</RootNamespace>
+    <LangVersion>latest</LangVersion>
+    <Nullable>disable</Nullable>
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+    <CopyLocalLockFileAssemblies>false</CopyLocalLockFileAssemblies>
+  </PropertyGroup>
+
+  <!--
+    Game install location. Override on the command line if yours differs:
+      dotnet build -p:ValheimDir="/path/to/Valheim"
+  -->
+  <PropertyGroup>
+    <ValheimDir Condition="'$(ValheimDir)' == ''">$(HOME)/Library/Application Support/Steam/steamapps/common/Valheim</ValheimDir>
+    <ManagedDir Condition="'$(ManagedDir)' == ''">$(ValheimDir)/valheim.app/Contents/Resources/Data/Managed</ManagedDir>
+    <BepInExDir Condition="'$(BepInExDir)' == ''">$(ValheimDir)/BepInEx</BepInExDir>
+    <!-- ScriptEngine (BepInEx.Debug) loads plugins from BepInEx/scripts and hot-reloads them when the DLL changes. -->
+    <PluginInstallDir>$(BepInExDir)/scripts</PluginInstallDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NETFramework.ReferenceAssemblies" Version="1.0.3" PrivateAssets="all" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="assembly_valheim"><HintPath>$(ManagedDir)/assembly_valheim.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="assembly_guiutils"><HintPath>$(ManagedDir)/assembly_guiutils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="assembly_utils"><HintPath>$(ManagedDir)/assembly_utils.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine"><HintPath>$(ManagedDir)/UnityEngine.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.CoreModule"><HintPath>$(ManagedDir)/UnityEngine.CoreModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.PhysicsModule"><HintPath>$(ManagedDir)/UnityEngine.PhysicsModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Unity.InputSystem"><HintPath>$(ManagedDir)/Unity.InputSystem.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UI"><HintPath>$(ManagedDir)/UnityEngine.UI.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.UIModule"><HintPath>$(ManagedDir)/UnityEngine.UIModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="UnityEngine.TextRenderingModule"><HintPath>$(ManagedDir)/UnityEngine.TextRenderingModule.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="BepInEx"><HintPath>$(BepInExDir)/core/BepInEx.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="0Harmony"><HintPath>$(BepInExDir)/core/0Harmony.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="Jotunn"><HintPath>$(BepInExDir)/plugins/Jotunn/Jotunn.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+
+  <!-- dotnet build -t:Install copies the plugin into BepInEx/scripts, where ScriptEngine hot-reloads it. -->
+  <Target Name="Install" DependsOnTargets="Build">
+    <MakeDir Directories="$(PluginInstallDir)" />
+    <!-- ScriptEngine r11.2 reads symbols for every DLL it loads and fails without the .pdb beside it. -->
+    <Copy SourceFiles="$(TargetPath);$(TargetDir)$(TargetName).pdb" DestinationFolder="$(PluginInstallDir)" />
+    <Message Importance="high" Text="Installed $(TargetFileName) to $(PluginInstallDir)" />
+  </Target>
+
+</Project>

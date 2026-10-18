@@ -17,7 +17,7 @@ public sealed class PickStones : Composite
     {
         while (true)
         {
-            var stone = World.Nearest<Pickable>(_radius, p => World.DropOf(p) == "Stone" && !_skipped.Contains(p));
+            var stone = Senses.Nearest<Pickable>(_radius, p => Senses.DropOf(p) == "Stone" && !_skipped.Contains(p));
             if (stone == null) break;
             yield return Try(new MoveTo(stone));
             if (Last.Ok) yield return Try(new Interact(stone));
@@ -53,8 +53,8 @@ public sealed class Rest : Primitive
 {
     protected override Result Tick()
     {
-        var p = World.Player;
-        if (p.GetStamina() >= p.GetMaxStamina()) return Result.Ok;
+        var p = Senses.Player;
+        if (p.GetStamina() >= p.GetMaxStamina()) return Result.Success;
         if (Elapsed > 60) return Result.Fail("timeout", "stamina not full after 60 s");
         return Result.Running;
     }
@@ -70,7 +70,7 @@ public sealed class Rest : Primitive
 public sealed class HealWhenLow : Reflex
 {
     public override Skill Check() =>
-        World.Player.GetHealthPercentage() < 0.3f && World.FindMead() is { } mead ? new Consume(mead) : null;
+        Senses.Player.GetHealthPercentage() < 0.3f && Senses.FindMead() is { } mead ? new Consume(mead) : null;
 }
 ```
 
@@ -79,14 +79,14 @@ public sealed class HealWhenLow : Reflex
 ## Register
 
 ```csharp
-Skills.Register(new SkillInfo
+Registry.Register(new SkillInfo
 {
     Id = "mymod.pick_stones",
     Description = "Pick up every loose stone around you.",
     Params = { Param.Number("radius", "metres", 30) },
     Create = args => new PickStones(args.Number("radius")),
 });
-Reflexes.Register(new HealWhenLow());
+Registry.Register(new HealWhenLow());
 ```
 
 Registered skills appear in the window and the console. Prefix ids with your mod's name. Do this from

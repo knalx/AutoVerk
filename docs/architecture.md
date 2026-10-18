@@ -5,7 +5,7 @@ One BepInEx plugin on Jotunn. Everything runs on Unity's main thread.
 ```
 src/AutoVerk/
   Engine/    Skill, Result, Runner, Registry   plain C#, no Unity, unit-tested
-  Game/      World (reads the game), Body (presses the controls)
+  Game/      Senses (reads the game), Body (presses the controls)
   Skills/    built-in skills and reflexes
   Ui/        window and console commands
 tests/AutoVerk.Tests/
@@ -38,9 +38,9 @@ The Runner runs one skill tree. Only its deepest skill, a primitive, works the g
 
 Resume after a pause restarts the interrupted primitive, which checks its target again.
 
-## World and Body
+## Senses and Body
 
-- **World** reads the game: the player, inventory, nearest objects, tools. It changes nothing.
+- **Senses** reads the game: the player, inventory, nearest objects, tools. It changes nothing.
 - **Body** presses the controls: walk, look, use, attack, place, equip. Each control lasts one frame, so
   nothing stays pressed after a pause or a crash.
 
@@ -52,5 +52,5 @@ Only primitives use Body.
 2. **Read numbers from the game** (reach, stamina, spacing), not from constants.
 3. **Find things by what they do,** not by name, so other mods' items work.
 4. **Check the target when starting.** It may be gone.
-5. **Loop: look, then act.** Read World afresh each pass instead of planning everything up front.
+5. **Loop: look, then act.** Read Senses afresh each pass instead of planning everything up front.
 6. **Always end:** a timeout, a try limit or a skip list.

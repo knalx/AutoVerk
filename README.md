@@ -27,9 +27,9 @@ public sealed class ChopNearestTree : Composite
 {
     protected override IEnumerable<Step> Run()
     {
-        var tree = World.Nearest<TreeBase>(radius: 30);
+        var tree = Senses.Nearest<TreeBase>(radius: 30);
         if (tree == null) yield return Fail("not_found", "no tree within 30 m");
-        yield return Do(new Equip(World.BestAxe()));
+        yield return Do(new Equip(Senses.BestAxe()));
         yield return Do(new MoveTo(tree));
         yield return Do(new Attack(tree));
     }
