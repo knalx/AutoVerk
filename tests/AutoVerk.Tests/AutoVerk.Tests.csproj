@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
-  <!-- Tests the mod's Engine folder: plain C# with no Unity or game references, compiled in here as source. -->
+  <!-- Tests the mod's plain C# parts (no Unity or game references), compiled in here as source. -->
   <PropertyGroup>
     <TargetFramework>net10.0</TargetFramework>
     <Nullable>disable</Nullable>
@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <Compile Include="../../src/AutoVerk/Engine/**/*.cs" Link="Engine/%(RecursiveDir)%(Filename)%(Extension)" />
+    <Compile Include="../../src/AutoVerk/Ui/SkillForm.cs" Link="Ui/SkillForm.cs" />
   </ItemGroup>
 
   <ItemGroup>

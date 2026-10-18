@@ -252,6 +252,8 @@ namespace AutoVerk.Tests
         }
     }
 
+    // The registry is static: tests that change it run one at a time.
+    [Collection("registry")]
     public class RegistryTests
     {
         private static SkillInfo Info() => new SkillInfo
