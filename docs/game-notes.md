@@ -29,8 +29,16 @@ Valheim facts skills rely on (game 1.0.20). Add what you learn, so the next pers
   without using a seed.
 - Plants need open sky to grow; placing doesn't check that.
 
+## Picking up
+
+- Walking within about 2 m of a drop picks it up by itself (auto-pickup), so a drop can vanish before Use.
+- Use on a chest or a workbench opens a menu, and an open menu pauses the run.
+
 ## Mining and fighting
 
+- `Humanoid.StartAttack(null, false)` is one swing. It starts a few frames later and hits partway through
+  (`InAttack()` is true meanwhile), so keep aiming until it ends; the game won't switch items mid-swing.
+- A melee swing aims with the view's pitch (private `m_lookPitch`), not just the facing.
 - A pickaxe swing destroys saplings nearby: clear rocks before planting.
 - Deer (`AnimalAI`) count as enemies but only flee; only `MonsterAI` attacks.
 

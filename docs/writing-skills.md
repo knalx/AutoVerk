@@ -17,7 +17,7 @@ public sealed class PickStones : Composite
     {
         while (true)
         {
-            var stone = Senses.Nearest<Pickable>(_radius, p => Senses.DropOf(p) == "Stone" && !_skipped.Contains(p));
+            var stone = Senses.Nearest<Pickable>(_radius, p => p.m_itemPrefab?.name == "Stone" && !p.GetPicked() && !_skipped.Contains(p));
             if (stone == null) break;
             yield return Try(new MoveTo(stone));
             if (Last.Ok) yield return Try(new Interact(stone));
@@ -95,5 +95,11 @@ your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`; see
 
 ## Failure codes
 
-Reuse these when one fits: `not_found`, `gone`, `too_far`, `stuck`, `no_tool`, `no_stamina`,
-`inventory_full`, `overweight`, `refused` (the game said no), `timeout`.
+Reuse these when one fits: `not_found`, `gone`, `too_far`, `stuck`, `water_in_path`, `no_tool`,
+`no_stamina`, `no_materials`, `inventory_full`, `overweight`, `no_space`, `not_cultivated`, `no_build_zone`,
+`refused` (the game said no), `timeout`.
+
+## Names
+
+Don't name a class after one of the game's global classes, such as `Attack`, `World` or `Skills`: in other
+mods' code the game's class wins. That's why the swing skill is `Strike`.

@@ -17,7 +17,8 @@ Needs [BepInEx](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim
 ## Use
 
 - **F7** opens the window: pick a skill, fill in its fields, press **Start**.
-- Or in the console (F5): `autoverk run farm.gather crop=Carrot`, `autoverk stop`, `autoverk skills`.
+- Or in the console (F5): `autoverk run collect radius=10`, `autoverk stop`, `autoverk skills`. A run starts
+  when you close the console.
 - Any key, click or open menu pauses the run.
 
 ## Add a skill
@@ -29,9 +30,9 @@ public sealed class ChopNearestTree : Composite
     {
         var tree = Senses.Nearest<TreeBase>(radius: 30);
         if (tree == null) yield return Fail("not_found", "no tree within 30 m");
-        yield return Do(new Equip(Senses.BestAxe()));
+        yield return Do(new Equip("AxeStone"));
         yield return Do(new MoveTo(tree));
-        yield return Do(new Attack(tree));
+        yield return Do(new Strike(tree));
     }
 }
 ```

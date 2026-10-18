@@ -20,8 +20,8 @@ A skill does one job and ends **ok** or **failed** with a code (`not_found`) and
 ("no tree within 30 m").
 
 - **Primitive:** works the game every frame through `Body`. Examples: `move_to`, `equip`, `interact`,
-  `place`, `attack`, `rest`.
-- **Composite:** one C# method that runs other skills in order. Examples: `collect`, `mine`,
+  `place`, `strike`, `rest`.
+- **Composite:** one C# method that runs other skills in order. Examples: `pick`, `collect`, `mine`,
   `farm.gather`, `farm.plant`.
 
 Most new skills should be composites.

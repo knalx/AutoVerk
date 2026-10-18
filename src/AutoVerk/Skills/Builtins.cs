@@ -1,6 +1,7 @@
 using AutoVerk.Engine;
 using AutoVerk.Game;
 using AutoVerk.Skills.Basic;
+using UnityEngine;
 
 namespace AutoVerk.Skills
 {
@@ -21,12 +22,63 @@ namespace AutoVerk.Skills
                 Id = "move_to",
                 Description = "Walk or run straight ahead some metres.",
                 Params = { Param.Number("ahead", "metres in front of you", 10), Param.Bool("run", "run instead of walking") },
+                Create = args => new MoveTo(Ahead(args.Number("ahead")), run: args.Bool("run")),
+            });
+            Registry.Register(new SkillInfo
+            {
+                Id = "equip",
+                Description = "Equip an item from the inventory.",
+                Params = { Param.Item("item", "item id, like AxeStone") },
+                Create = args => new Equip(args.Item("item")),
+            });
+            Registry.Register(new SkillInfo
+            {
+                Id = "rest",
+                Description = "Stand still until stamina is full.",
+                Create = args => new Rest(),
+            });
+            Registry.Register(new SkillInfo
+            {
+                Id = "strike",
+                Description = "Swing the weapon in hand at the nearest enemy or tree in reach until it falls.",
+                Params = { Param.Choice("target", "what to strike", "enemy", "tree"), Param.Number("radius", "metres", 4) },
                 Create = args =>
                 {
-                    var player = Senses.Player;
-                    return new MoveTo(player.transform.position + player.transform.forward * args.Number("ahead"), run: args.Bool("run"));
+                    float radius = args.Number("radius");
+                    Component target = args.Text("target") == "tree"
+                        ? (Component)Senses.Nearest<TreeBase>(radius)
+                        : Senses.Nearest<Character>(radius, Senses.IsEnemy);
+                    return new Strike(target);
                 },
             });
+            Registry.Register(new SkillInfo
+            {
+                Id = "place",
+                Description = "Place a piece from the tool in hand a few metres ahead.",
+                Params = { Param.Text("piece", "piece id, like wood_floor"), Param.Number("ahead", "metres in front of you", 2) },
+                Create = args => new Place(args.Text("piece"), Ahead(args.Number("ahead"))),
+            });
+            Registry.Register(new SkillInfo
+            {
+                Id = "pick",
+                Description = "Walk to the nearest pickable (berries, stones, crops) and pick it.",
+                Params = { Param.Number("radius", "metres", 20), Param.Item("item", "only this item, like Raspberry", "") },
+                Create = args => new Pick(args.Number("radius"), args.Item("item")),
+            });
+            Registry.Register(new SkillInfo
+            {
+                Id = "collect",
+                Description = "Pick up the items lying around.",
+                Params = { Param.Number("radius", "metres", 10), Param.Item("item", "only this item, like Wood", "") },
+                Create = args => new Collect(args.Number("radius"), args.Item("item")),
+            });
+        }
+
+        /// <summary>A point some metres in front of the player.</summary>
+        private static Vector3 Ahead(float metres)
+        {
+            var player = Senses.Player;
+            return player.transform.position + player.transform.forward * metres;
         }
     }
 }

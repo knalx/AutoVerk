@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using UnityEngine;
 
 namespace AutoVerk.Game
@@ -33,6 +34,63 @@ namespace AutoVerk.Game
             }
             return best;
         }
+
+        /// <summary>Distance from the player's eyes, which is what the game's use and place reach measure.</summary>
+        public static float EyeDistance(Vector3 point) => Vector3.Distance(Player.m_eye.position, point);
+
+        /// <summary>The box around an object's solid colliders, or a point box at its position when it has none.</summary>
+        public static Bounds Bounds(Component target)
+        {
+            var box = new Bounds(target.transform.position, Vector3.zero);
+            bool any = false;
+            foreach (var c in target.GetComponentsInChildren<Collider>())
+            {
+                if (c.isTrigger || !c.enabled) continue;
+                if (any) box.Encapsulate(c.bounds);
+                else box = c.bounds;
+                any = true;
+            }
+            return box;
+        }
+
+        /// <summary>The middle of an object, to aim at: a creature's centre, or the middle of its colliders.</summary>
+        public static Vector3 Center(Component target) =>
+            target is Character c ? c.GetCenterPoint() : Bounds(target).center;
+
+        /// <summary>The point of an object's box nearest to a point.</summary>
+        public static Vector3 NearestPoint(Component target, Vector3 from) => Bounds(target).ClosestPoint(from);
+
+        /// <summary>An inventory item's id, its prefab name: "CarrotSeeds".</summary>
+        public static string ItemId(ItemDrop.ItemData item) => item?.m_dropPrefab != null ? item.m_dropPrefab.name : null;
+
+        /// <summary>The first inventory item with this id, or null.</summary>
+        public static ItemDrop.ItemData FindItem(string id) =>
+            Player.GetInventory().GetAllItems().FirstOrDefault(i => ItemId(i) == id);
+
+        /// <summary>How many of an item the inventory holds.</summary>
+        public static int Count(string id) =>
+            Player.GetInventory().GetAllItems().Where(i => ItemId(i) == id).Sum(i => i.m_stack);
+
+        /// <summary>The item in the right hand: weapon or tool. Null when bare-handed.</summary>
+        public static ItemDrop.ItemData InHand() => GameApi.RightItem(Player);
+
+        /// <summary>A one- or two-handed weapon that swings (axes, clubs, swords, pickaxes) and does damage.</summary>
+        public static bool IsMeleeWeapon(ItemDrop.ItemData item)
+        {
+            var s = item?.m_shared;
+            if (s?.m_attack == null) return false;
+            bool hand = s.m_itemType == ItemDrop.ItemData.ItemType.OneHandedWeapon ||
+                        s.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeapon ||
+                        s.m_itemType == ItemDrop.ItemData.ItemType.TwoHandedWeaponLeft;
+            bool swings = s.m_attack.m_attackType == Attack.AttackType.Horizontal || s.m_attack.m_attackType == Attack.AttackType.Vertical;
+            return hand && swings && item.GetDamage().GetTotalDamage() > 0;
+        }
+
+        /// <summary>The pieces the tool in hand can place (hammer, cultivator, hoe), or null.</summary>
+        public static PieceTable BuildPieces() => InHand()?.m_shared?.m_buildPieces;
+
+        /// <summary>A living creature that's hostile to the player.</summary>
+        public static bool IsEnemy(Character c) => c != null && !c.IsDead() && BaseAI.IsEnemy(c, Player);
 
         /// <summary>Why the character can't be driven now ("sitting"), or null.</summary>
         public static string Busy(Player p)
