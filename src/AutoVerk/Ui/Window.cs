@@ -11,7 +11,8 @@ namespace AutoVerk.Ui
     /// <summary>
     /// The mod's window: a Jotunn wood panel the window key shows and hides. Three looks:
     /// <list type="bullet">
-    /// <item>Form (idle or finished): pick a skill, fill in its fields, Start. Holds the mouse and the input.</item>
+    /// <item>Form (idle or finished): a Skills tab to pick a skill, fill in its fields and Start, and a Settings
+    /// tab to turn interruptions on and off. Holds the mouse and the input.</item>
     /// <item>Paused: why, with Resume and Stop. Holds the mouse and the input.</item>
     /// <item>Running: a small status block under the minimap that leaves the game its input.</item>
     /// </list>
@@ -21,20 +22,35 @@ namespace AutoVerk.Ui
     internal sealed class Window
     {
         private const float Width = 460f;
-        private const float Height = 450f;
+        private const float Height = 500f;
         private const float CompactWidth = 400f;
         private const float Row = 34f;
-        private const float FirstParamY = -150f;
+        private const float TabsY = -66f;
+        private const float SkillY = -110f;
+        private const float FirstParamY = -190f;
 
         public enum Look { Form, Paused, Running }
+
+        private enum Tab { Skills, Settings }
 
         public sealed class Actions
         {
             public Action Start;
             public Action Resume;
             public Action Stop;
+            /// <summary>A tab or the skill was switched: redraw now.</summary>
+            public Action Changed;
             /// <summary>The window was hidden at this top-right corner (offset from the screen's top-right).</summary>
             public Action<Vector2> Moved;
+        }
+
+        /// <summary>One row of the Settings tab: a checkbox, saved as it changes.</summary>
+        public sealed class Setting
+        {
+            public string Id;
+            public string Label;
+            public Func<bool> On;
+            public Action<bool> SetOn;
         }
 
         /// <summary>What the window shows; built by the plugin on every refresh.</summary>
@@ -45,21 +61,34 @@ namespace AutoVerk.Ui
             public List<KeyValuePair<string, string>> Rows = new List<KeyValuePair<string, string>>();
             /// <summary>Free text under the form: the last run's outcome, or why Start didn't start.</summary>
             public string Body;
+            public List<Setting> Settings = new List<Setting>();
+        }
+
+        private sealed class TabButton
+        {
+            public Image Image;
+            public Text Text;
         }
 
         private readonly Actions _actions;
         private readonly SkillForm _form;
         private Vector2 _corner;
+        private Tab _tab;
         private GameObject _canvas;
         private GameObject _panel;
         private Text _title;
         private Text _rows;
         private Text _body;
+        private GameObject _tabsGroup;
+        private readonly TabButton[] _tabs = new TabButton[2];
         private GameObject _formGroup;
         private Choice _skill;
         private Text _description;
         private GameObject _params;
-        private string _paramsFor;
+        private string _paramsKey;
+        private GameObject _settingsGroup;
+        private string _settingsKey;
+        private readonly List<(Setting setting, Toggle check)> _settingRows = new List<(Setting, Toggle)>();
         private GameObject _start;
         private GameObject _resume;
         private GameObject _stop;
@@ -84,7 +113,6 @@ namespace AutoVerk.Ui
         {
             _canvas = null;
             _panel = null;
-            _paramsFor = null;
             Block(false);
         }
 
@@ -110,27 +138,45 @@ namespace AutoVerk.Ui
         {
             if (!Visible) return;
             bool compact = v.Look == Look.Running;
+            bool form = v.Look == Look.Form;
             float width = (compact ? CompactWidth : Width) - 40f;
             // The width first: the wrapped height depends on it.
             _rows.rectTransform.sizeDelta = new Vector2(width, _rows.rectTransform.sizeDelta.y);
             _rows.text = string.Join("\n", v.Rows.Select(r => $"<color=#b4b4b4>{r.Key}</color>   {r.Value}"));
             SetCompact(compact);
-            _title.text = "AutoVerk";
-            _formGroup.SetActive(v.Look == Look.Form);
-            _start.SetActive(v.Look == Look.Form);
+            _tabsGroup.SetActive(form);
+            _formGroup.SetActive(form && _tab == Tab.Skills);
+            _settingsGroup.SetActive(form && _tab == Tab.Settings);
+            _start.SetActive(form && _tab == Tab.Skills);
             _resume.SetActive(v.Look == Look.Paused);
             _stop.SetActive(v.Look == Look.Paused);
 
             float top = -50f;
-            if (v.Look == Look.Form)
+            var body = compact ? "" : v.Body ?? "";
+            if (form)
             {
-                ShowForm();
-                top = FirstParamY - Row * (_form.Skill?.Params.Count ?? 0) + 10f;
+                for (int i = 0; i < _tabs.Length; i++)
+                {
+                    bool on = (int)_tab == i;
+                    _tabs[i].Text.color = on ? GUIManager.Instance.ValheimOrange : new Color(0.75f, 0.75f, 0.75f);
+                    _tabs[i].Image.color = on ? Color.white : new Color(0.5f, 0.5f, 0.5f);
+                }
+                if (_tab == Tab.Skills)
+                {
+                    ShowForm();
+                    top = FirstParamY - Row * (_form.Skill?.Params.Count ?? 0) + 10f;
+                }
+                else
+                {
+                    ShowSettings(v.Settings);
+                    top = SkillY - Row * v.Settings.Count + 10f;
+                    body = "Interruptions step in during any run when something happens, then the run carries on.";
+                }
             }
             _rows.gameObject.SetActive(v.Rows.Count > 0);
             PlaceTop(_rows.rectTransform, 20f, top, width, _rows.preferredHeight);
             if (v.Rows.Count > 0) top -= _rows.preferredHeight + 8f;
-            _body.text = compact ? "" : v.Body ?? "";
+            _body.text = body;
             PlaceTop(_body.rectTransform, 20f, top, width, Math.Max(20f, top + Height - 60f));
         }
 
@@ -150,13 +196,17 @@ namespace AutoVerk.Ui
             _skill.Set(_form.Skills.Select(s => s.Id).ToList(), _form.Selected, "no skills");
             var info = _form.Skill;
             _description.text = info?.Description ?? "";
-            if (info?.Id != _paramsFor) CreateParams(info);
+            var key = $"{info?.Id}#{_form.Revision}";
+            if (key != _paramsKey)
+            {
+                _paramsKey = key;
+                CreateParams(info);
+            }
         }
 
         /// <summary>One row per parameter of the chosen skill: its name, a box, checkbox or dropdown, and what it is.</summary>
         private void CreateParams(SkillInfo info)
         {
-            _paramsFor = info?.Id;
             if (_params != null) UnityEngine.Object.Destroy(_params);
             _params = Group(_formGroup.transform, "Params");
             if (info == null) return;
@@ -166,24 +216,77 @@ namespace AutoVerk.Ui
             {
                 var p = param;
                 Label(c, p.Name, 20f, y, 90f, 28f, 15, Color.white);
-                switch (p.Kind)
+                if (p.Kind == ParamKind.Bool)
                 {
-                    case ParamKind.Bool:
-                        var check = Check(c, 115f, y, on => _form.Set(p, on ? "yes" : "no"));
-                        check.SetIsOnWithoutNotify(_form.Value(p) == "yes");
-                        break;
-                    case ParamKind.Choice:
-                        var choice = new Choice(Drop(c, 115f, y, 150f), i => _form.Set(p, p.Options[i]));
-                        choice.Set(p.Options.ToList(), Math.Max(0, p.Options.ToList().IndexOf(_form.Value(p))), null);
-                        break;
-                    default:
-                        var content = p.Kind == ParamKind.Number ? InputField.ContentType.DecimalNumber : InputField.ContentType.Standard;
-                        Input(c, 115f, y, 150f, _form.Value(p), content, v => _form.Set(p, v));
-                        break;
+                    var check = Check(c, 115f, y, on => _form.Set(p, on ? "yes" : "no"));
+                    check.SetIsOnWithoutNotify(_form.Value(p) == "yes");
+                }
+                else if (p.Kind == ParamKind.Choice) Dropdown(c, y, p, p.Options.ToList());
+                else if (p.Suggestions != null) Dropdown(c, y, p, Suggested(p));
+                else
+                {
+                    var content = p.Kind == ParamKind.Number ? InputField.ContentType.DecimalNumber : InputField.ContentType.Standard;
+                    Input(c, 115f, y, 150f, _form.Value(p), content, v => _form.Set(p, v));
                 }
                 Label(c, p.Description, 275f, y, 165f, 28f, 13, new Color(0.7f, 0.7f, 0.7f));
                 y -= Row;
             }
+        }
+
+        /// <summary>The values a parameter suggests, empty first when it means something ("anything").</summary>
+        private static List<string> Suggested(Param p)
+        {
+            var values = new List<string>();
+            if (p.EmptyText != null) values.Add("");
+            try
+            {
+                values.AddRange(p.Suggestions().Where(s => !string.IsNullOrEmpty(s)));
+            }
+            catch (Exception e)
+            {
+                Plugin.Log.LogWarning($"suggestions for {p.Name}: {e.Message}");
+            }
+            return values;
+        }
+
+        /// <summary>
+        /// A dropdown of values. An empty value with no meaning of its own takes the first one, so a seed is chosen
+        /// as soon as you carry one; a value typed in the console that isn't offered is kept.
+        /// </summary>
+        private void Dropdown(Transform parent, float y, Param p, List<string> values)
+        {
+            var current = _form.Value(p);
+            if (current == "" && p.EmptyText == null && values.Count > 0)
+            {
+                current = values[0];
+                _form.Set(p, current);
+            }
+            if (current != "" && !values.Contains(current)) values.Add(current);
+            var choice = new Choice(Drop(parent, 115f, y, 150f), i => _form.Set(p, values[i]));
+            choice.Set(values.Select(v => v == "" ? p.EmptyText ?? "" : v).ToList(), values.IndexOf(current), "none found");
+        }
+
+        /// <summary>The Settings tab: a row per interruption, rebuilt when the set of them changes.</summary>
+        private void ShowSettings(List<Setting> settings)
+        {
+            var key = string.Join(",", settings.Select(s => s.Id));
+            if (key != _settingsKey)
+            {
+                _settingsKey = key;
+                foreach (Transform child in _settingsGroup.transform) UnityEngine.Object.Destroy(child.gameObject);
+                _settingRows.Clear();
+                float y = SkillY;
+                foreach (var s in settings)
+                {
+                    var setting = s;
+                    Label(_settingsGroup.transform, setting.Label, 20f, y, 360f, 28f, 15, Color.white);
+                    var check = Check(_settingsGroup.transform, 400f, y, on => setting.SetOn(on));
+                    _settingRows.Add((setting, check));
+                    y -= Row;
+                }
+            }
+            foreach (var (setting, check) in _settingRows)
+                if (check.isOn != setting.On()) check.SetIsOnWithoutNotify(setting.On());
         }
 
         /// <summary>
@@ -280,7 +383,9 @@ namespace AutoVerk.Ui
                 Width, Height, draggable: true);
             _panel.name = "AutoVerkWindow";
             _compact = false;
-            _paramsFor = null;
+            _paramsKey = null;
+            _settingsKey = null;
+            _settingRows.Clear();
 
             _title = Label(_panel.transform, "AutoVerk", 20f, -28f, Width - 40f, 30f, 22, gui.ValheimOrange);
             _rows = Label(_panel.transform, "", 20f, -60f, Width - 40f, 20f, 15, Color.white);
@@ -292,12 +397,33 @@ namespace AutoVerk.Ui
                 t.supportRichText = true;
             }
 
+            _tabsGroup = Group(_panel.transform, "Tabs");
+            var names = new[] { "Skills", "Settings" };
+            float tabWidth = (Width - 40f - 6f) / names.Length;
+            for (int i = 0; i < names.Length; i++)
+            {
+                var tab = (Tab)i;
+                var go = gui.CreateButton(names[i], _tabsGroup.transform, new Vector2(0f, 1f), new Vector2(0f, 1f),
+                    new Vector2(20f + i * (tabWidth + 6f) + tabWidth / 2f, TabsY), tabWidth, 32f);
+                go.GetComponent<Button>().onClick.AddListener(() =>
+                {
+                    _tab = tab;
+                    _actions.Changed?.Invoke();
+                });
+                _tabs[i] = new TabButton { Image = go.GetComponent<Image>(), Text = go.GetComponentInChildren<Text>() };
+            }
+
             _formGroup = Group(_panel.transform, "Form");
             var c = _formGroup.transform;
-            Label(c, "skill", 20f, -75f, 90f, 28f, 15, Color.white);
-            _skill = new Choice(Drop(c, 115f, -75f, 325f), i => _form.Select(i));
-            _description = Label(c, "", 20f, -110f, Width - 40f, 36f, 14, new Color(0.8f, 0.8f, 0.8f));
+            Label(c, "skill", 20f, SkillY, 90f, 28f, 15, Color.white);
+            _skill = new Choice(Drop(c, 115f, SkillY, 325f), i =>
+            {
+                _form.Select(i);
+                _actions.Changed?.Invoke();
+            });
+            _description = Label(c, "", 20f, SkillY - 38f, Width - 40f, 40f, 14, new Color(0.8f, 0.8f, 0.8f));
             _description.alignment = TextAnchor.UpperLeft;
+            _settingsGroup = Group(_panel.transform, "Settings");
 
             _start = Button(_panel.transform, "Start", new Vector2(70f, 35f), 110f, _actions.Start);
             _resume = Button(_panel.transform, "Resume", new Vector2(70f, 35f), 110f, _actions.Resume);

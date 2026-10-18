@@ -31,6 +31,8 @@ namespace AutoVerk
         private ConfigEntry<KeyboardShortcut> _windowKey;
         private ConfigEntry<string> _windowPosition;
         private ConfigEntry<string> _lastStart;
+        /// <summary>On or off for each interruption (reflex), by id; other mods' ones are added as they show up.</summary>
+        private readonly Dictionary<string, ConfigEntry<bool>> _interruptions = new Dictionary<string, ConfigEntry<bool>>();
         private SkillForm _form;
         private Window _window;
         private float _nextRefresh;
@@ -59,6 +61,7 @@ namespace AutoVerk
 
             Builtins.Register();
             Commands.Register(this);
+            ApplyInterruptionSettings();
 
             _form = new SkillForm();
             _form.Refresh();
@@ -68,6 +71,7 @@ namespace AutoVerk
                 Start = StartFromWindow,
                 Resume = () => _message = ResumeWhenFree(),
                 Stop = () => Runner.Stop("stopped from the window"),
+                Changed = () => _nextRefresh = 0f,
                 Moved = corner => _windowPosition.Value = string.Format(CultureInfo.InvariantCulture, "{0:0}, {1:0}", corner.x, corner.y),
             }, _form, ParseCorner(_windowPosition.Value));
             GUIManager.OnCustomGUIAvailable += _window.OnGuiRebuilt;
@@ -119,6 +123,7 @@ namespace AutoVerk
                 // Start on the frame after the console closes, so the key that closed it doesn't pause the run.
                 if (_pending != null)
                 {
+                    ApplyInterruptionSettings();
                     Runner.Start(_pending);
                     _pending = null;
                     _message = null;
@@ -187,9 +192,33 @@ namespace AutoVerk
                 default:
                     v.Look = Window.Look.Form;
                     v.Body = _message ?? (Runner.State == RunState.Finished ? Commands.Describe(Runner) : null);
+                    ApplyInterruptionSettings();
+                    foreach (var reflex in Registry.Reflexes)
+                    {
+                        var r = reflex;
+                        var entry = _interruptions[r.Id];
+                        v.Settings.Add(new Window.Setting
+                        {
+                            Id = r.Id,
+                            Label = r.Description,
+                            On = () => entry.Value,
+                            SetOn = on => r.Enabled = entry.Value = on,
+                        });
+                    }
                     break;
             }
             return v;
+        }
+
+        /// <summary>Gives each interruption its config entry, and its on or off from there.</summary>
+        private void ApplyInterruptionSettings()
+        {
+            foreach (var reflex in Registry.Reflexes)
+            {
+                if (!_interruptions.TryGetValue(reflex.Id, out var entry))
+                    _interruptions[reflex.Id] = entry = Config.Bind("Interruptions", reflex.Id, true, reflex.Description);
+                reflex.Enabled = entry.Value;
+            }
         }
 
         private static KeyValuePair<string, string> Row(string label, string value) => new KeyValuePair<string, string>(label, value);

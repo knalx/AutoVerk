@@ -10,6 +10,7 @@
   <ItemGroup>
     <Compile Include="../../src/AutoVerk/Engine/**/*.cs" Link="Engine/%(RecursiveDir)%(Filename)%(Extension)" />
     <Compile Include="../../src/AutoVerk/Ui/SkillForm.cs" Link="Ui/SkillForm.cs" />
+    <Compile Include="../../src/AutoVerk/Skills/Farm/Field.cs" Link="Skills/Farm/Field.cs" />
   </ItemGroup>
 
   <ItemGroup>

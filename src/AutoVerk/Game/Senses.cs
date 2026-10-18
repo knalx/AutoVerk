@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -86,11 +87,29 @@ namespace AutoVerk.Game
             return hand && swings && item.GetDamage().GetTotalDamage() > 0;
         }
 
+        /// <summary>The melee weapon in the inventory that does the most damage and isn't broken, or null.</summary>
+        public static ItemDrop.ItemData BestWeapon() =>
+            Player.GetInventory().GetAllItems()
+                .Where(i => IsMeleeWeapon(i) && !(i.m_shared.m_useDurability && i.m_durability <= 0))
+                .OrderByDescending(i => i.GetDamage().GetTotalDamage())
+                .FirstOrDefault();
+
         /// <summary>The pieces the tool in hand can place (hammer, cultivator, hoe), or null.</summary>
         public static PieceTable BuildPieces() => InHand()?.m_shared?.m_buildPieces;
 
         /// <summary>A living creature that's hostile to the player.</summary>
         public static bool IsEnemy(Character c) => c != null && !c.IsDead() && BaseAI.IsEnemy(c, Player);
+
+        /// <summary>Every object of a type within a radius of the player.</summary>
+        public static List<T> Around<T>(float radius) where T : Component
+        {
+            var found = new List<T>();
+            if (Player == null) return found;
+            var from = Player.transform.position;
+            foreach (var candidate in UnityEngine.Object.FindObjectsByType<T>(FindObjectsSortMode.None))
+                if (Vector3.Distance(from, candidate.transform.position) <= radius) found.Add(candidate);
+            return found;
+        }
 
         /// <summary>Why the character can't be driven now ("sitting"), or null.</summary>
         public static string Busy(Player p)

@@ -28,6 +28,9 @@ Valheim facts skills rely on (game 1.0.20). Add what you learn, so the next pers
 - `Plant.HaveGrowSpace()` needs about 0.7 m between plants. Call it on the placement ghost to check a spot
   without using a seed.
 - Plants need open sky to grow; placing doesn't check that.
+- Cultivating levels the patch to the ground under the player, so a sapling placed before can float up to a
+  metre above the ground: look for plants in a column, not just on the ground.
+- A grown crop of another field within the grow radius makes a spot `NoSpace`.
 
 ## Picking up
 

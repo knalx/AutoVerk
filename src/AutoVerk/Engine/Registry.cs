@@ -20,6 +20,20 @@ namespace AutoVerk.Engine
 
         public bool Required => Default == null;
 
+        /// <summary>Values to offer in a dropdown (the seeds you carry), read when the window opens. Typing others is fine.</summary>
+        public Func<IEnumerable<string>> Suggestions { get; private set; }
+
+        /// <summary>What the dropdown says for an empty value: "new field here", "anything".</summary>
+        public string EmptyText { get; private set; }
+
+        /// <summary>Offer these values in the window's dropdown.</summary>
+        public Param WithSuggestions(Func<IEnumerable<string>> suggestions, string emptyText = null)
+        {
+            Suggestions = suggestions;
+            EmptyText = emptyText;
+            return this;
+        }
+
         public static Param Number(string name, string description, double? fallback = null) =>
             new Param { Name = name, Kind = ParamKind.Number, Description = description, Default = fallback?.ToString(CultureInfo.InvariantCulture) };
 

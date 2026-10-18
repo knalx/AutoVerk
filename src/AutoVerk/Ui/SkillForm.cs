@@ -21,16 +21,22 @@ namespace AutoVerk.Ui
 
         public int Selected => Skills.ToList().FindIndex(s => s.Id == _id);
 
+        /// <summary>Goes up when the skill or its suggestions may have changed: the window then rebuilds the fields.</summary>
+        public int Revision { get; private set; }
+
         /// <summary>Reads the registered skills again, keeping the choice when it's still there.</summary>
         public void Refresh()
         {
             Skills = Registry.Skills.ToList();
             if (Skill == null) _id = Skills.FirstOrDefault()?.Id;
+            Revision++;
         }
 
         public void Select(int index)
         {
-            if (index >= 0 && index < Skills.Count) _id = Skills[index].Id;
+            if (index < 0 || index >= Skills.Count || Skills[index].Id == _id) return;
+            _id = Skills[index].Id;
+            Revision++;
         }
 
         /// <summary>What the field shows: what was typed, else the default.</summary>

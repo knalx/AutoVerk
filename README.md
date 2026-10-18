@@ -16,7 +16,10 @@ Needs [BepInEx](https://thunderstore.io/c/valheim/p/denikson/BepInExPack_Valheim
 
 ## Use
 
-- **F7** opens the window: pick a skill, fill in its fields, press **Start**.
+- **F7** opens the window: pick a skill, fill in its fields, press **Start**. The Settings tab turns
+  interruptions on and off, like fighting back when a monster comes at you.
+- `farm.plant` saves each new field in `BepInEx/config/AutoVerk/<world>.fields.txt`, so you can fill it up
+  later.
 - Or in the console (F5): `autoverk run collect radius=10`, `autoverk stop`, `autoverk skills`. A run starts
   when you close the console.
 - Any key, click or open menu pauses the run.

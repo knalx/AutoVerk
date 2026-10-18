@@ -1,6 +1,8 @@
+using System.Linq;
 using AutoVerk.Engine;
 using AutoVerk.Game;
 using AutoVerk.Skills.Basic;
+using AutoVerk.Skills.Farm;
 using UnityEngine;
 
 namespace AutoVerk.Skills
@@ -68,16 +70,44 @@ namespace AutoVerk.Skills
             {
                 Id = "pick",
                 Description = "Pick everything around you that can be picked: berries, mushrooms, stones, ripe crops.",
-                Params = { Param.Number("radius", "metres", 20), Param.Item("item", "only this, like Raspberry", "") },
+                Params =
+                {
+                    Param.Number("radius", "metres", 20),
+                    Param.Item("item", "only this, like Raspberry", "").WithSuggestions(() => Senses.Around<Pickable>(30)
+                        .Where(p => !p.GetPicked() && p.m_itemPrefab != null).Select(p => p.m_itemPrefab.name).Distinct().OrderBy(n => n), "anything"),
+                },
                 Create = args => new Pick(args.Number("radius"), args.Item("item")),
             });
             Registry.Register(new SkillInfo
             {
                 Id = "collect",
                 Description = "Pick up the items lying around.",
-                Params = { Param.Number("radius", "metres", 10), Param.Item("item", "only this item, like Wood", "") },
+                Params =
+                {
+                    Param.Number("radius", "metres", 10),
+                    Param.Item("item", "only this item, like Wood", "").WithSuggestions(() => Senses.Around<ItemDrop>(30)
+                        .Where(d => !d.IsPiece()).Select(d => Utils.GetPrefabName(d.gameObject)).Distinct().OrderBy(n => n), "anything"),
+                },
                 Create = args => new Collect(args.Number("radius"), args.Item("item")),
             });
+            Registry.Register(new SkillInfo
+            {
+                Id = "farm.plant",
+                Description = "Plant a field with the Cultivator: picks up stones in the way, cultivates and sows. " +
+                              "A new field is laid out in front of you and saved; a saved one keeps its seed.",
+                Params =
+                {
+                    Param.Item("seed", "what to plant", "").WithSuggestions(PlantData.SeedsCarried),
+                    Param.Text("field", "or fill up a saved one", "").WithSuggestions(Fields.Names, "new field here"),
+                    Param.Number("count", "spots in a new field", 20),
+                    Param.Number("line", "spots per line", 10),
+                    Param.Choice("layout", "how the lines sit", "staggered", "grid"),
+                },
+                Create = args => new PlantField(args.Item("seed"), args.Text("field"), (int)args.Number("count"),
+                    (int)args.Number("line"), args.Text("layout") == "staggered"),
+            });
+
+            Registry.Register(new FightBack());
         }
 
         /// <summary>A point some metres in front of the player.</summary>

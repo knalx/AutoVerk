@@ -69,12 +69,17 @@ public sealed class Rest : Primitive
 ```csharp
 public sealed class HealWhenLow : Reflex
 {
+    public override string Description => "Drink a healing mead when health is low";
+
     public override Skill Check() =>
-        Senses.Player.GetHealthPercentage() < 0.3f && Senses.FindMead() is { } mead ? new Consume(mead) : null;
+        Senses.Player.GetHealthPercentage() < 0.3f && Senses.FindItem("MeadHealthMinor") is { } mead ? new Consume(mead) : null;
 }
 ```
 
-`Check()` runs every frame, so keep it cheap. Return `null` when there's nothing to do.
+`Check()` runs every frame, so keep it cheap. Return `null` when there's nothing to do. The interrupted
+primitive starts again afterwards, so put back anything you changed, like the item in hand: see
+[`FightBack`](../src/AutoVerk/Skills/FightBack.cs). The window's Settings tab lists each reflex by its
+`Description`, and the player turns it on or off there.
 
 ## Register
 
@@ -89,7 +94,9 @@ Registry.Register(new SkillInfo
 Registry.Register(new HealWhenLow());
 ```
 
-Registered skills appear in the window and the console. Prefix ids with your mod's name. A building block
+Registered skills appear in the window and the console. Prefix ids with your mod's name. To offer values
+in a dropdown, add `.WithSuggestions(() => seeds, "anything")` to a parameter; the second argument names
+the empty value, if it means something. A building block
 that's no job on its own, like `move_to`, gets `ForDevelopers = true`: it stays out of the window and runs
 from the console for testing (`autoverk skills all` lists it). Do this from
 your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`; see
