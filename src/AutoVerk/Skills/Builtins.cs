@@ -68,18 +68,6 @@ namespace AutoVerk.Skills
             });
             Registry.Register(new SkillInfo
             {
-                Id = "pick",
-                Description = "Pick everything around you that can be picked: berries, mushrooms, stones, ripe crops.",
-                Params =
-                {
-                    Param.Number("radius", "metres", 20),
-                    Param.Item("item", "only this, like Raspberry", "").WithSuggestions(() => Senses.Around<Pickable>(30)
-                        .Where(p => !p.GetPicked() && p.m_itemPrefab != null).Select(p => p.m_itemPrefab.name).Distinct().OrderBy(n => n), "anything"),
-                },
-                Create = args => new Pick(args.Number("radius"), args.Item("item")),
-            });
-            Registry.Register(new SkillInfo
-            {
                 Id = "collect",
                 Description = "Pick up the items lying around.",
                 Params =
