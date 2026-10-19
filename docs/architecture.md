@@ -9,7 +9,6 @@ src/AutoVerk/
   Skills/    built-in skills and reflexes
   Ui/        window and console commands
 tests/AutoVerk.Tests/
-examples/HelloSkill/   a separate plugin that adds a skill
 ```
 
 The UI only talks to the Runner and the Registry, so adding a skill never touches it.

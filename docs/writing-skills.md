@@ -95,8 +95,7 @@ Registry.Register(new HealWhenLow());
 ```
 
 Registered skills appear in the window and the console. Prefix ids with your mod's name. Do this from
-your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`; see
-[`examples/HelloSkill`](../examples/HelloSkill).
+your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`.
 
 - A building block that's no job on its own, like `move_to`, gets `ForDevelopers = true`: it stays out of
   the window and runs from the console for testing (`autoverk skills all` lists it).
