@@ -25,6 +25,8 @@ Valheim facts skills rely on (game 1.0.20). Add what you learn, so the next pers
 
 - Find the cultivate piece by data: its `TerrainOp` paints `Cultivate`. Cultivating levels the ground.
 - A sapling's `m_resources` names its seed; match by data, not names.
+- `Plant.HaveGrowSpace()` fails on any solid collider within `m_growRadius` (a rock, a piece), not just
+  another plant.
 - `Plant.HaveGrowSpace()` needs about 0.7 m between plants. Call it on the placement ghost to check a spot
   without using a seed.
 - Plants need open sky to grow; placing doesn't check that.
@@ -43,6 +45,11 @@ Valheim facts skills rely on (game 1.0.20). Add what you learn, so the next pers
   (`InAttack()` is true meanwhile), so keep aiming until it ends; the game won't switch items mid-swing.
 - A melee swing aims with the view's pitch (private `m_lookPitch`), not just the facing.
 - A pickaxe swing destroys saplings nearby: clear rocks before planting.
+- A swing is a fan of sphere casts (`Attack.DoMeleeAttack`), each stopping at the first thing it touches: a
+  pickaxe cast that reaches the ground first digs a hole. `Mine` replays the fan to pick a pitch.
+- Rocks are `Destructible`, `MineRock` or `MineRock5`; a pickaxe breaks them unless their pickaxe damage
+  modifier is `Immune`, and only from `m_minToolTier` up. A `MineRock5` breaks part by part: a broken part's
+  collider is switched off, and the rock is destroyed with its last part.
 - Deer (`AnimalAI`) count as enemies but only flee; only `MonsterAI` attacks.
 
 ## Input

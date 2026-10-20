@@ -69,6 +69,7 @@ namespace AutoVerk
             _window = new Window(new Window.Actions
             {
                 Start = StartFromWindow,
+                Preview = PreviewFromWindow,
                 Resume = () => _message = ResumeWhenFree(),
                 Stop = () => Runner.Stop("stopped from the window"),
                 Changed = () => _nextRefresh = 0f,
@@ -146,6 +147,7 @@ namespace AutoVerk
             if (Senses.Player == null) return "not in a world";
             var busy = Senses.Busy(Senses.Player);
             if (busy != null) return $"can't start: the character is {busy}";
+            Markers.Hide();
             _pending = skill;
             var menu = Senses.OpenMenu();
             return menu == null ? $"starting {skill}" : $"{skill} starts when you close the {menu}";
@@ -173,6 +175,18 @@ namespace AutoVerk
             _nextRefresh = 0f;
         }
 
+        /// <summary>Shows the chosen skill's preview, or hides the one showing.</summary>
+        private void PreviewFromWindow()
+        {
+            if (Markers.Showing)
+            {
+                Markers.Hide();
+                _message = null;
+            }
+            else _message = _form.Preview();
+            _nextRefresh = 0f;
+        }
+
         private Window.View BuildView()
         {
             var v = new Window.View();
@@ -192,6 +206,8 @@ namespace AutoVerk
                 default:
                     v.Look = Window.Look.Form;
                     v.Body = _message ?? (Runner.State == RunState.Finished ? Commands.Describe(Runner) : null);
+                    // Hide stays offered after switching to a skill without a preview.
+                    v.PreviewButton = Markers.Showing ? "Hide" : _form.CanPreview ? "Preview" : null;
                     ApplyInterruptionSettings();
                     foreach (var reflex in Registry.Reflexes)
                     {
@@ -265,6 +281,7 @@ namespace AutoVerk
         {
             Runner?.Stop("the mod was unloaded");
             Body.Clear();
+            Markers.Destroy();
             if (_window != null)
             {
                 GUIManager.OnCustomGUIAvailable -= _window.OnGuiRebuilt;

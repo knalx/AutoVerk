@@ -11,7 +11,7 @@ namespace AutoVerk.Ui
     /// <summary>
     /// The mod's window: a Jotunn wood panel the window key shows and hides. Three looks:
     /// <list type="bullet">
-    /// <item>Form (idle or finished): a Skills tab to pick a skill, fill in its fields and Start, and a Settings
+    /// <item>Form (idle or finished): a Skills tab to pick a skill, fill in its fields, Preview and Start, and a Settings
     /// tab to turn interruptions on and off. Holds the mouse and the input.</item>
     /// <item>Paused: why, with Resume and Stop. Holds the mouse and the input.</item>
     /// <item>Running: a small status block under the minimap that leaves the game its input.</item>
@@ -22,7 +22,7 @@ namespace AutoVerk.Ui
     internal sealed class Window
     {
         private const float Width = 460f;
-        private const float Height = 500f;
+        private const float Height = 560f;
         private const float CompactWidth = 400f;
         private const float Row = 34f;
         private const float TabsY = -66f;
@@ -36,6 +36,8 @@ namespace AutoVerk.Ui
         public sealed class Actions
         {
             public Action Start;
+            /// <summary>Show the chosen skill's preview, or hide the one showing.</summary>
+            public Action Preview;
             public Action Resume;
             public Action Stop;
             /// <summary>A tab or the skill was switched: redraw now.</summary>
@@ -62,6 +64,8 @@ namespace AutoVerk.Ui
             /// <summary>Free text under the form: the last run's outcome, or why Start didn't start.</summary>
             public string Body;
             public List<Setting> Settings = new List<Setting>();
+            /// <summary>The preview button's text, "Preview" or "Hide"; null hides the button.</summary>
+            public string PreviewButton;
         }
 
         private sealed class TabButton
@@ -90,6 +94,7 @@ namespace AutoVerk.Ui
         private string _settingsKey;
         private readonly List<(Setting setting, Toggle check)> _settingRows = new List<(Setting, Toggle)>();
         private GameObject _start;
+        private GameObject _preview;
         private GameObject _resume;
         private GameObject _stop;
         private bool _compact;
@@ -148,6 +153,8 @@ namespace AutoVerk.Ui
             _formGroup.SetActive(form && _tab == Tab.Skills);
             _settingsGroup.SetActive(form && _tab == Tab.Settings);
             _start.SetActive(form && _tab == Tab.Skills);
+            _preview.SetActive(form && _tab == Tab.Skills && v.PreviewButton != null);
+            if (v.PreviewButton != null) _preview.GetComponentInChildren<Text>().text = v.PreviewButton;
             _resume.SetActive(v.Look == Look.Paused);
             _stop.SetActive(v.Look == Look.Paused);
 
@@ -388,6 +395,7 @@ namespace AutoVerk.Ui
             _settingRows.Clear();
 
             _title = Label(_panel.transform, "AutoVerk", 20f, -28f, Width - 40f, 30f, 22, gui.ValheimOrange);
+            _title.alignment = TextAnchor.MiddleCenter;
             _rows = Label(_panel.transform, "", 20f, -60f, Width - 40f, 20f, 15, Color.white);
             _body = Label(_panel.transform, "", 20f, -125f, Width - 40f, 150f, 15, Color.white);
             foreach (var t in new[] { _rows, _body })
@@ -426,6 +434,7 @@ namespace AutoVerk.Ui
             _settingsGroup = Group(_panel.transform, "Settings");
 
             _start = Button(_panel.transform, "Start", new Vector2(70f, 35f), 110f, _actions.Start);
+            _preview = Button(_panel.transform, "Preview", new Vector2(190f, 35f), 110f, _actions.Preview);
             _resume = Button(_panel.transform, "Resume", new Vector2(70f, 35f), 110f, _actions.Resume);
             _stop = Button(_panel.transform, "Stop", new Vector2(190f, 35f), 110f, _actions.Stop);
 

@@ -60,6 +60,18 @@ namespace AutoVerk.Skills
             });
             Registry.Register(new SkillInfo
             {
+                Id = "mine",
+                Description = "Break the nearest rock in reach with the pickaxe in hand, one part of a big one.",
+                Params = { Param.Number("radius", "metres", 4) },
+                Create = args =>
+                {
+                    var rock = Rocks.Find(Senses.Player.transform.position, args.Number("radius"), out var part);
+                    return new Mine(rock, part);
+                },
+                ForDevelopers = true,
+            });
+            Registry.Register(new SkillInfo
+            {
                 Id = "place",
                 Description = "Place a piece from the tool in hand a few metres ahead.",
                 Params = { Param.Text("piece", "piece id, like wood_floor"), Param.Number("ahead", "metres in front of you", 2) },
@@ -80,23 +92,29 @@ namespace AutoVerk.Skills
             });
             Registry.Register(new SkillInfo
             {
-                Id = "farm.plant",
-                Description = "Plant a field with the Cultivator: picks up stones in the way, cultivates and sows. " +
+                Id = "plant",
+                Description = "Plant a field with the Cultivator: clears stones and rocks in the way, cultivates and sows. " +
                               "A new field is laid out in front of you and saved; a saved one keeps its seed.",
                 Params =
                 {
                     Param.Item("seed", "what to plant", "").WithSuggestions(PlantData.SeedsCarried),
-                    Param.Text("field", "or fill up a saved one", "").WithSuggestions(Fields.Names, "new field here"),
+                    Param.Text("field", "or fill up a saved one", "").WithSuggestions(Fields.Names, "new"),
                     Param.Number("count", "spots in a new field", 20),
                     Param.Number("line", "spots per line", 10),
                     Param.Choice("layout", "how the lines sit", "staggered", "grid"),
+                    Param.Bool("stones", "pick up stones on the spots", true),
+                    Param.Bool("rocks", "break rocks in the way with a pickaxe"),
                 },
-                Create = args => new PlantField(args.Item("seed"), args.Text("field"), (int)args.Number("count"),
-                    (int)args.Number("line"), args.Text("layout") == "staggered"),
+                Create = Plant,
+                Preview = args => Plant(args).Preview(),
             });
 
             Registry.Register(new FightBack());
         }
+
+        private static PlantField Plant(Args args) =>
+            new PlantField(args.Item("seed"), args.Text("field"), (int)args.Number("count"), (int)args.Number("line"),
+                args.Text("layout") == "staggered", args.Bool("stones"), args.Bool("rocks"));
 
         /// <summary>A point some metres in front of the player.</summary>
         private static Vector3 Ahead(float metres)

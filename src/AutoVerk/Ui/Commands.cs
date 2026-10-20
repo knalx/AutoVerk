@@ -1,20 +1,22 @@
 using System.Collections.Generic;
 using System.Linq;
 using AutoVerk.Engine;
+using AutoVerk.Game;
 using HarmonyLib;
 
 namespace AutoVerk.Ui
 {
-    /// <summary>The console's <c>autoverk</c> command: skills, run, pause, resume, stop, status.</summary>
+    /// <summary>The console's <c>autoverk</c> command: skills, run, preview, pause, resume, stop, status.</summary>
     internal static class Commands
     {
         private const string Name = "autoverk";
-        private const string Usage = "autoverk skills [all] | run <skill> [name=value …] | pause | resume | stop | status";
+        private const string Usage =
+            "autoverk skills [all] | run <skill> [name=value …] | preview <skill> [name=value …] | preview hide | pause | resume | stop | status";
 
         public static void Register(Plugin plugin)
         {
             new Terminal.ConsoleCommand(Name, Usage, args => Run(plugin, args), optionsFetcher: () =>
-                new List<string> { "skills", "run", "pause", "resume", "stop", "status" });
+                new List<string> { "skills", "run", "preview", "pause", "resume", "stop", "status" });
         }
 
         public static void Unregister() =>
@@ -38,6 +40,15 @@ namespace AutoVerk.Ui
                     var skill = Registry.FromLine(line, out var error);
                     if (skill == null) print(error);
                     else print(plugin.StartWhenFree(skill));
+                    break;
+                case "preview":
+                    var previewLine = string.Join(" ", args.Args.Skip(2));
+                    if (previewLine == "" || previewLine == "hide")
+                    {
+                        Markers.Hide();
+                        print("preview hidden");
+                    }
+                    else print(Registry.PreviewLine(previewLine));
                     break;
                 case "pause":
                     runner.Pause("paused from the console");

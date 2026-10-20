@@ -23,7 +23,7 @@ namespace AutoVerk.Engine
         /// <summary>Values to offer in a dropdown (the seeds you carry), read when the window opens. Typing others is fine.</summary>
         public Func<IEnumerable<string>> Suggestions { get; private set; }
 
-        /// <summary>What the dropdown says for an empty value: "new field here", "anything".</summary>
+        /// <summary>What the dropdown says for an empty value: "new", "anything".</summary>
         public string EmptyText { get; private set; }
 
         /// <summary>Offer these values in the window's dropdown.</summary>
@@ -61,6 +61,12 @@ namespace AutoVerk.Engine
         public string Description { get; set; }
         public List<Param> Params { get; } = new List<Param>();
         public Func<Args, Skill> Create { get; set; }
+
+        /// <summary>
+        /// Optional: show where the skill would work without doing anything, like markers on a field's spots, and
+        /// say what it found in a line. The window's Preview button and <c>autoverk preview</c> call it.
+        /// </summary>
+        public Func<Args, string> Preview { get; set; }
 
         /// <summary>
         /// A building block to test from the console (move_to, strike), not a job for the player: left out of the
@@ -205,16 +211,30 @@ namespace AutoVerk.Engine
         /// <summary>Creates a skill from a console line, or null and why not.</summary>
         public static Skill FromLine(string line, out string error)
         {
+            var args = ArgsFromLine(line, out var info, out error);
+            return args == null ? null : info.Create(args);
+        }
+
+        /// <summary>Previews a skill from a console line: what it found, or why not.</summary>
+        public static string PreviewLine(string line)
+        {
+            var args = ArgsFromLine(line, out var info, out var error);
+            if (args == null) return error;
+            return info.Preview == null ? $"{info.Id} has no preview" : info.Preview(args);
+        }
+
+        private static Args ArgsFromLine(string line, out SkillInfo info, out string error)
+        {
+            info = null;
             var id = Args.ParseLine(line, out var given, out error);
             if (id == null) return null;
-            var info = Find(id);
+            info = Find(id);
             if (info == null)
             {
                 error = $"no skill '{id}'; 'autoverk skills' lists them";
                 return null;
             }
-            var args = Args.Check(info, given, out error);
-            return args == null ? null : info.Create(args);
+            return Args.Check(info, given, out error);
         }
     }
 }

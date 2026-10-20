@@ -76,10 +76,10 @@ public sealed class HealWhenLow : Reflex
 }
 ```
 
-`Check()` runs every frame, so keep it cheap. Return `null` when there's nothing to do. The interrupted
-primitive starts again afterwards, so put back anything you changed, like the item in hand: see
-[`FightBack`](../src/AutoVerk/Skills/FightBack.cs). The window's Settings tab lists each reflex by its
-`Description`, and the player turns it on or off there.
+`Consume` isn't built in: it stands for a primitive of your own. `Check()` runs every frame, so keep it
+cheap. Return `null` when there's nothing to do. The interrupted primitive starts again afterwards, so put
+back anything you changed, like the item in hand: see [`FightBack`](../src/AutoVerk/Skills/FightBack.cs).
+The window's Settings tab lists each reflex by its `Description`, and the player turns it on or off there.
 
 ## Register
 
@@ -99,6 +99,8 @@ your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`.
 
 - A building block that's no job on its own, like `move_to`, gets `ForDevelopers = true`: it stays out of
   the window and runs from the console for testing (`autoverk skills all` lists it).
+- To show where a skill would work before it starts, set `Preview = args => …`: stand `Markers.Pole`s on
+  the ground and return a line saying what you found. The window then offers a Preview button.
 - To offer values in a dropdown, add `.WithSuggestions(() => seeds, "anything")` to a parameter; the second
   argument names the empty value, if it means something.
 
@@ -106,7 +108,7 @@ your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`.
 
 Reuse these when one fits: `not_found`, `gone`, `too_far`, `stuck`, `water_in_path`, `no_tool`,
 `no_stamina`, `no_materials`, `inventory_full`, `overweight`, `no_space`, `not_cultivated`, `no_build_zone`,
-`refused` (the game said no), `timeout`.
+`refused` (the game said no), `missed` (a swing didn't land), `timeout`.
 
 ## Names
 

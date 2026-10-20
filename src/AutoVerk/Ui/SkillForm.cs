@@ -50,19 +50,14 @@ namespace AutoVerk.Ui
             typed[p.Name] = value ?? "";
         }
 
+        /// <summary>The chosen skill has a preview.</summary>
+        public bool CanPreview => Skill?.Preview != null;
+
         /// <summary>The chosen skill as filled in, or null and why not.</summary>
         public Skill Create(out string error)
         {
             var info = Skill;
-            if (info == null)
-            {
-                error = "no skills registered";
-                return null;
-            }
-            // An empty field counts as not given, so a required one says so and an optional one takes its default.
-            var given = info.Params.Select(p => (p.Name, Value: Value(p))).Where(v => v.Value != "")
-                .ToDictionary(v => v.Name, v => v.Value);
-            var args = Args.Check(info, given, out error);
+            var args = Filled(out error);
             if (args == null) return null;
             try
             {
@@ -73,6 +68,38 @@ namespace AutoVerk.Ui
                 error = $"{info.Id} couldn't start: {e.Message}";
                 return null;
             }
+        }
+
+        /// <summary>The chosen skill's preview as filled in: what it found, or why not.</summary>
+        public string Preview()
+        {
+            var info = Skill;
+            if (info != null && info.Preview == null) return $"{info.Id} has no preview";
+            var args = Filled(out var error);
+            if (args == null) return error;
+            try
+            {
+                return info.Preview(args);
+            }
+            catch (Exception e)
+            {
+                return $"{info.Id} couldn't preview: {e.Message}";
+            }
+        }
+
+        /// <summary>The fields' values, checked, or null and why not.</summary>
+        private Args Filled(out string error)
+        {
+            var info = Skill;
+            if (info == null)
+            {
+                error = "no skills registered";
+                return null;
+            }
+            // An empty field counts as not given, so a required one says so and an optional one takes its default.
+            var given = info.Params.Select(p => (p.Name, Value: Value(p))).Where(v => v.Value != "")
+                .ToDictionary(v => v.Name, v => v.Value);
+            return Args.Check(info, given, out error);
         }
 
         /// <summary>The form as a console line: collect radius=10 item=Wood.</summary>

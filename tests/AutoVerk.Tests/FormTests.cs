@@ -108,5 +108,45 @@ namespace AutoVerk.Tests
                 Registry.Unregister("test.throws");
             }
         }
+
+        [Fact]
+        public void PreviewsWithTheFieldsFilledIn()
+        {
+            Registry.Register(new SkillInfo
+            {
+                Id = "test.preview",
+                Params = { Param.Item("crop", "the crop"), Param.Number("radius", "metres", 50) },
+                Create = _ => new Wait(1),
+                Preview = args => $"{args.Item("crop")} within {args.Number("radius")} m",
+            });
+            try
+            {
+                var form = new SkillForm();
+                form.Restore("test.preview");
+                Assert.True(form.CanPreview);
+                Assert.StartsWith("crop is required", form.Preview());
+
+                form.Set(form.Skill.Params[0], "Carrot");
+                Assert.Equal("Carrot within 50 m", form.Preview());
+                Assert.Equal("Carrot within 7 m", Registry.PreviewLine("test.preview crop=Carrot radius=7"));
+            }
+            finally
+            {
+                Registry.Unregister("test.preview");
+            }
+        }
+
+        [Fact]
+        public void SaysWhenASkillHasNoPreview()
+        {
+            WithSkill(() =>
+            {
+                var form = new SkillForm();
+                form.Restore("test.form");
+                Assert.False(form.CanPreview);
+                Assert.Equal("test.form has no preview", form.Preview());
+                Assert.Equal("test.form has no preview", Registry.PreviewLine("test.form crop=Carrot"));
+            });
+        }
     }
 }

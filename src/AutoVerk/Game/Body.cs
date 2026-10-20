@@ -13,6 +13,7 @@ namespace AutoVerk.Game
         internal static Vector3? WalkTarget;
         internal static Vector3? LookTarget;
         internal static bool Tilt;
+        internal static float? Pitch;
         internal static bool Running;
         internal static bool JumpPressed;
         internal static Vector3? PlaceAim;
@@ -30,6 +31,13 @@ namespace AutoVerk.Game
         {
             LookTarget = point;
             Tilt = tilt;
+        }
+
+        /// <summary>Face a point with the view pitched by some degrees (positive looks down), for a swing aimed beforehand.</summary>
+        public static void LookAt(Vector3 point, float pitch)
+        {
+            LookTarget = point;
+            Pitch = pitch;
         }
 
         /// <summary>Press Jump once.</summary>
@@ -57,6 +65,7 @@ namespace AutoVerk.Game
             WalkTarget = null;
             LookTarget = null;
             Tilt = false;
+            Pitch = null;
             Running = false;
             JumpPressed = false;
             PlaceAim = null;
@@ -72,7 +81,7 @@ namespace AutoVerk.Game
             if (!Body.Active || player == null || __instance.gameObject != player.gameObject) return;
 
             // Walking turns toward where it goes below; facing is for standing still (striking, placing).
-            if (Body.LookTarget != null && Body.WalkTarget == null) Face(player, Body.LookTarget.Value, Body.Tilt);
+            if (Body.LookTarget != null && Body.WalkTarget == null) Face(player, Body.LookTarget.Value, Body.Tilt, Body.Pitch);
             var move = Vector3.zero;
             if (Body.WalkTarget != null)
             {
@@ -91,14 +100,15 @@ namespace AutoVerk.Game
                 block: false, blockHold: false, jump: jump, crouch: false, run: Body.Running, autoRun: false);
         }
 
-        private static void Face(Player player, Vector3 point, bool tilt)
+        private static void Face(Player player, Vector3 point, bool tilt, float? pitch)
         {
             var to = point - player.m_eye.position;
             var flat = new Vector3(to.x, 0f, to.z);
             if (flat.sqrMagnitude < 0.0001f) return;
             player.SetLookDir(flat.normalized);
             player.FaceLookDirection();
-            if (tilt) GameApi.LookPitch(player) = Mathf.Clamp(-Mathf.Atan2(to.y, flat.magnitude) * Mathf.Rad2Deg, -45f, 45f);
+            if (pitch != null) GameApi.LookPitch(player) = pitch.Value;
+            else if (tilt) GameApi.LookPitch(player) = Mathf.Clamp(-Mathf.Atan2(to.y, flat.magnitude) * Mathf.Rad2Deg, -45f, 45f);
         }
     }
 

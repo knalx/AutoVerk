@@ -94,6 +94,16 @@ namespace AutoVerk.Game
                 .OrderByDescending(i => i.GetDamage().GetTotalDamage())
                 .FirstOrDefault();
 
+        /// <summary>A melee weapon that does pickaxe damage: it breaks rocks.</summary>
+        public static bool IsPickaxe(ItemDrop.ItemData item) => IsMeleeWeapon(item) && item.m_shared.m_damages.m_pickaxe > 0;
+
+        /// <summary>The pickaxe in the inventory of at least a tool tier that does the most pickaxe damage and isn't broken, or null.</summary>
+        public static ItemDrop.ItemData Pickaxe(int tier = 0) =>
+            Player.GetInventory().GetAllItems()
+                .Where(i => IsPickaxe(i) && i.m_shared.m_toolTier >= tier && !(i.m_shared.m_useDurability && i.m_durability <= 0))
+                .OrderByDescending(i => i.GetDamage().m_pickaxe)
+                .FirstOrDefault();
+
         /// <summary>The pieces the tool in hand can place (hammer, cultivator, hoe), or null.</summary>
         public static PieceTable BuildPieces() => InHand()?.m_shared?.m_buildPieces;
 
