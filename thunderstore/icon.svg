@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
+  <rect width="256" height="256" fill="#2b1d12"/>
+  <rect x="10" y="10" width="236" height="236" rx="18" fill="#5a3b22" stroke="#c9a14a" stroke-width="6"/>
+  <!-- cog -->
+  <g transform="translate(128 128)" fill="#c9a14a">
+    <circle r="78"/>
+    <g id="tooth"><rect x="-14" y="-104" width="28" height="34" rx="4"/></g>
+    <use href="#tooth" transform="rotate(45)"/>
+    <use href="#tooth" transform="rotate(90)"/>
+    <use href="#tooth" transform="rotate(135)"/>
+    <use href="#tooth" transform="rotate(180)"/>
+    <use href="#tooth" transform="rotate(225)"/>
+    <use href="#tooth" transform="rotate(270)"/>
+    <use href="#tooth" transform="rotate(315)"/>
+    <circle r="60" fill="#3a2616"/>
+  </g>
+  <text x="128" y="152" text-anchor="middle" font-family="Georgia, serif" font-weight="bold" font-size="68"
+        fill="#e8d5a0">AV</text>
+</svg>

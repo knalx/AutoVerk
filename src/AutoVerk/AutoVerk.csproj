@@ -50,4 +50,33 @@
     <Message Importance="high" Text="Installed $(TargetFileName) to $(PluginInstallDir)" />
   </Target>
 
+  <!--
+    dotnet build -c Release -t:Package zips the Thunderstore package into dist/AutoVerk-<version>.zip.
+    The package's files are in thunderstore/; its version must match Plugin.Version.
+  -->
+  <PropertyGroup>
+    <ThunderstoreDir>$(MSBuildThisFileDirectory)../../thunderstore/</ThunderstoreDir>
+    <PackageStageDir>$(BaseIntermediateOutputPath)thunderstore/</PackageStageDir>
+    <PackageOutputDir>$(MSBuildThisFileDirectory)../../dist/</PackageOutputDir>
+  </PropertyGroup>
+
+  <Target Name="Package" DependsOnTargets="Build">
+    <PropertyGroup>
+      <PluginSource>$([System.IO.File]::ReadAllText('$(MSBuildThisFileDirectory)Plugin.cs'))</PluginSource>
+      <ManifestSource>$([System.IO.File]::ReadAllText('$(ThunderstoreDir)manifest.json'))</ManifestSource>
+      <PluginVersion>$([System.Text.RegularExpressions.Regex]::Match($(PluginSource), '(?&lt;=Version = ")[^"]+').Value)</PluginVersion>
+      <ManifestVersion>$([System.Text.RegularExpressions.Regex]::Match($(ManifestSource), '(?&lt;="version_number":\s*")[^"]+').Value)</ManifestVersion>
+    </PropertyGroup>
+    <Error Condition="'$(Configuration)' != 'Release'" Text="Package a Release build: dotnet build -c Release -t:Package" />
+    <Error Condition="'$(PluginVersion)' != '$(ManifestVersion)'"
+           Text="Plugin.Version is '$(PluginVersion)' but thunderstore/manifest.json says '$(ManifestVersion)'" />
+
+    <RemoveDir Directories="$(PackageStageDir)" />
+    <Copy SourceFiles="$(ThunderstoreDir)manifest.json;$(ThunderstoreDir)icon.png;$(ThunderstoreDir)README.md;$(ThunderstoreDir)CHANGELOG.md;$(TargetPath)"
+          DestinationFolder="$(PackageStageDir)" />
+    <MakeDir Directories="$(PackageOutputDir)" />
+    <ZipDirectory SourceDirectory="$(PackageStageDir)" DestinationFile="$(PackageOutputDir)AutoVerk-$(PluginVersion).zip" Overwrite="true" />
+    <Message Importance="high" Text="Packaged $(PackageOutputDir)AutoVerk-$(PluginVersion).zip" />
+  </Target>
+
 </Project>
