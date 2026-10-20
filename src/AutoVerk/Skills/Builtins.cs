@@ -81,36 +81,82 @@ namespace AutoVerk.Skills
             Registry.Register(new SkillInfo
             {
                 Id = "collect",
-                Description = "Pick up the items lying around.",
+                Title = "Pick up items",
+                Doing = "Picking up",
+                StartText = "Start picking up",
+                Description = "Picks up the items lying around you: everything, or one kind.",
                 Params =
                 {
-                    Param.Number("radius", "metres", 10),
+                    Param.Number("radius", "metres", 10).Shows("Radius", hint: _ => "metres around you"),
                     Param.Item("item", "only this item, like Wood", "").WithSuggestions(() => Senses.Around<ItemDrop>(30)
-                        .Where(d => !d.IsPiece()).Select(d => Utils.GetPrefabName(d.gameObject)).Distinct().OrderBy(n => n), "anything"),
+                        .Where(d => !d.IsPiece()).Select(d => Utils.GetPrefabName(d.gameObject)).Distinct().OrderBy(n => n), "Anything")
+                        .Shows("Item", hint: _ => "or one kind only"),
                 },
                 Create = args => new Collect(args.Number("radius"), args.Item("item")),
+                // A building block now: gather picks up what falls.
+                ForDevelopers = true,
+            });
+            Registry.Register(new SkillInfo
+            {
+                Id = "gather",
+                Title = "Gather plants",
+                Doing = "Gathering",
+                StartText = "Start gathering",
+                StopNote = "Stop keeps what's gathered.",
+                Description = "Picks what's ripe around you: everything you can plant, everything wild, or one kind.",
+                Params =
+                {
+                    Param.Item("plants", "what the plants give, like Raspberry; @wild for every wild one", "")
+                        .WithSuggestions(() => new[] { Gather.Wild }.Concat(PlantData.RipeAround(50)), "Everything plantable")
+                        .WithNames(Gather.What)
+                        .Shows("Plants", hint: v => v.Text("plants") == "" ? "crops and seeds"
+                            : v.Text("plants") == Gather.Wild ? "berries, mushrooms, thistle" : "only this kind"),
+                    Param.Number("radius", "metres", 20).Shows("Radius", hint: _ => "metres around you"),
+                    Param.Bool("loose", "Pick up stones and wood").Shows("Also", hint: _ => "lying around"),
+                },
+                Summary = Gather.Summary,
+                Create = args => new Gather(args.Item("plants"), args.Number("radius"), args.Bool("loose")),
+                Preview = args => new Gather(args.Item("plants"), args.Number("radius"), args.Bool("loose")).Preview(),
             });
             Registry.Register(new SkillInfo
             {
                 Id = "plant",
-                Description = "Plant a field with the Cultivator: clears stones and rocks in the way, cultivates and sows. " +
-                              "A new field is laid out in front of you and saved; a saved one keeps its seed.",
+                Title = "Plant a field",
+                Doing = "Planting",
+                StartText = "Start planting",
+                StopNote = "Stop keeps what's planted. You can fill the rest later.",
+                Description = "Clears the ground, tills it with the Cultivator and sows your crop.",
                 Params =
                 {
-                    Param.Item("seed", "what to plant", "").WithSuggestions(PlantData.SeedsCarried),
-                    Param.Text("field", "or fill up a saved one", "").WithSuggestions(Fields.Names, "new"),
-                    Param.Number("count", "spots in a new field", 20),
-                    Param.Number("line", "spots per line", 10),
-                    Param.Choice("layout", "how the lines sit", "staggered", "grid"),
-                    Param.Bool("stones", "pick up stones on the spots", true),
-                    Param.Bool("rocks", "break rocks in the way with a pickaxe"),
+                    Param.Item("seed", "what to plant", "").WithSuggestions(PlantData.SeedsCarried)
+                        .Shows("Seeds", "Crop", v => $"{Senses.Count(v.Item("seed"))} in your pack")
+                        .ShownWhen(NewField),
+                    Param.Text("field", "or fill up a saved one", "").WithSuggestions(Fields.Names, "New field")
+                        .Shows("Field", "Field", v => NewField(v) ? "or pick a saved one" : "keeps its crop and size")
+                        .WithButton("Delete", v => Fields.Delete(v.Text("field")), v => !NewField(v), confirm: true, clears: true),
+                    Param.Number("count", "spots in a new field", 20)
+                        .Shows("Spots", "Field", _ => "plants in total")
+                        .ShownWhen(NewField),
+                    Param.Number("line", "spots per line", 10)
+                        .Shows("Per row", "Field", v => PlantField.Rows(v) is int rows ? $"= {rows} row{(rows == 1 ? "" : "s")}" : "")
+                        .ShownWhen(NewField),
+                    Param.Choice("layout", "how the lines sit", "staggered", "grid")
+                        .Shows("Rows", "Field", v => v.Text("layout") == "grid" ? "spots lined up across rows" : "every other row shifted half a spot")
+                        .ShownWhen(NewField),
+                    Param.Bool("stones", "Pick up loose stones", true)
+                        .Shows("Stones", "Clear the ground first", _ => "on each spot"),
+                    Param.Bool("rocks", "Break rocks in the way")
+                        .Shows("Rocks", "Clear the ground first", _ => "uses your pickaxe"),
                 },
+                Summary = PlantField.Summary,
                 Create = Plant,
                 Preview = args => Plant(args).Preview(),
             });
 
             Registry.Register(new FightBack());
         }
+
+        private static bool NewField(FormValues v) => v.Text("field") == "";
 
         private static PlantField Plant(Args args) =>
             new PlantField(args.Item("seed"), args.Text("field"), (int)args.Number("count"), (int)args.Number("line"),

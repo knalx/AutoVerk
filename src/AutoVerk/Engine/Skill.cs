@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.Text;
 
 namespace AutoVerk.Engine
@@ -22,6 +23,41 @@ namespace AutoVerk.Engine
 
         /// <summary>How it ended, or null while it hasn't.</summary>
         public Result Result { get; private set; }
+
+        /// <summary>What it works on, for the window: "Carrot · field carrots-4".</summary>
+        public string Subject { get; protected set; }
+
+        /// <summary>Label and value rows for the window, kept up while it runs and once it's done: ("Planted", "4").</summary>
+        public IReadOnlyList<KeyValuePair<string, string>> Facts => _facts;
+
+        /// <summary>Once it's done, the window's heading instead of "Done": "Stopped: out of carrot seeds".</summary>
+        public string Headline { get; protected set; }
+
+        /// <summary>Once it's done, what to do next, under the buttons: "Get more seeds first."</summary>
+        public string Advice { get; protected set; }
+
+        /// <summary>A console line that carries on the job later, and its button: "Fill the rest". Null for none.</summary>
+        public string AgainLine { get; protected set; }
+        public string AgainLabel { get; protected set; }
+
+        /// <summary>The registered skill it was started as, when it was; for the window's words.</summary>
+        internal SkillInfo Info { get; set; }
+
+        private readonly List<KeyValuePair<string, string>> _facts = new List<KeyValuePair<string, string>>();
+
+        /// <summary>Sets a fact, in place if it's there, else at the end; null removes it.</summary>
+        protected void SetFact(string label, string value)
+        {
+            int i = _facts.FindIndex(f => f.Key == label);
+            if (value == null)
+            {
+                if (i >= 0) _facts.RemoveAt(i);
+            }
+            else if (i >= 0) _facts[i] = new KeyValuePair<string, string>(label, value);
+            else _facts.Add(new KeyValuePair<string, string>(label, value));
+        }
+
+        protected void ClearFacts() => _facts.Clear();
 
         /// <summary>Seconds since it started (or restarted after a pause).</summary>
         protected double Elapsed => _run == null ? 0 : _run.Now - _startedAt;

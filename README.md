@@ -16,13 +16,14 @@ With a mod manager (r2modman, Thunderstore Mod Manager), install AutoVerk from T
 
 ## Use
 
-- **F7** opens the window: pick a skill, fill in its fields, press **Start**. The Settings tab turns
-  interruptions on and off, like fighting back when a monster comes at you.
+- **F7** opens the window: pick a task, fill in its fields, press **Start**. While it runs, the window shows
+  how far it got; when it's done, what happened, with **Fill the rest** to carry on later. The Settings tab
+  turns interruptions on and off, like fighting back when a monster comes at you.
 - `plant` saves each new field in `BepInEx/config/AutoVerk/<world>.fields.txt`, so you can fill it up
   later. Checkboxes choose whether it picks up stones on the spots and breaks rocks in the way (needs a
   pickaxe). **Preview** puts poles on the spots first: green ready, yellow a stone or rock to clear, red to
   be skipped, blue planted already. **Hide** takes them away.
-- Or in the console (F5): `autoverk run collect radius=10`, `autoverk preview plant seed=CarrotSeeds`,
+- Or in the console (F5): `autoverk run gather plants=Carrot`, `autoverk preview plant seed=CarrotSeeds`,
   `autoverk stop`, `autoverk skills`. A run starts
   when you close the console.
 - Any key, click or open menu pauses the run.

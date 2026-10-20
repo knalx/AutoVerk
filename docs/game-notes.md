@@ -30,9 +30,18 @@ Valheim facts skills rely on (game 1.0.20). Add what you learn, so the next pers
 - `Plant.HaveGrowSpace()` needs about 0.7 m between plants. Call it on the placement ghost to check a spot
   without using a seed.
 - Plants need open sky to grow; placing doesn't check that.
+- Nothing can be planted under water. `Floating.GetLiquidLevel(point)` is the water (or tar) surface there,
+  -10000 with none: a spot is wet when it's above the ground.
 - Cultivating levels the patch to the ground under the player, so a sapling placed before can float up to a
   metre above the ground: look for plants in a column, not just on the ground.
 - A grown crop of another field within the grow radius makes a spot `NoSpace`.
+
+## Gathering
+
+- Wild plants (berries, mushrooms, thistle) are `Pickable`s that grow back (`m_respawnTimeMinutes > 0`), but
+  so are branches, flint and loose stones. What tells them apart is what they give: food, or a light herb
+  (0.1), against wood, flint and stone (1 or more).
+- `Pickable.CanBePicked()` is ripe; a picked berry bush stays, with its berries hidden.
 
 ## Picking up
 

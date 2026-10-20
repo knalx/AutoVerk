@@ -46,7 +46,7 @@ namespace AutoVerk.Skills.Basic
             _go = rock != null ? rock.gameObject : null;
             _part = part;
             _maxSwings = maxSwings;
-            _name = rock != null ? Utils.GetPrefabName(rock.gameObject) : "the rock";
+            _name = Rocks.Name(rock);
         }
 
         /// <summary>Unity's == treats a destroyed object as null. A broken part of a big rock is switched off.</summary>
@@ -141,12 +141,16 @@ namespace AutoVerk.Skills.Basic
 
         // ---- Aiming: a replay of Attack.GetMeleeAttackDir and Attack.DoMeleeAttack ----
 
+        /// <summary>
+        /// RockRays reach the rock: the part asked for, or another part of the same rock in front of it, which is in
+        /// the way and breaks first. PartRays reach the part itself and count double.
+        /// </summary>
         private sealed class Aim
         {
             public float Pitch;
-            public int RockRays, GroundRays, OtherRays;
+            public int RockRays, PartRays, GroundRays, OtherRays;
             public string Blocker;
-            public float Score => RockRays - GroundRays - 2f * OtherRays;
+            public float Score => RockRays + PartRays - GroundRays - 2f * OtherRays;
         }
 
         private Aim BestAim(Player player, Attack attack)
@@ -186,8 +190,12 @@ namespace AutoVerk.Skills.Basic
                 if (hit == null) continue;
                 var col = hit.Value.collider;
                 var obj = Projectile.FindHitObject(col);
-                bool onRock = _part != null ? col == _part : obj == _go || (obj != null && obj.transform.IsChildOf(_go.transform));
-                if (onRock) aim.RockRays++;
+                bool onRock = obj == _go || (obj != null && obj.transform.IsChildOf(_go.transform)) || col.transform.IsChildOf(_go.transform);
+                if (onRock)
+                {
+                    aim.RockRays++;
+                    if (_part != null && col == _part) aim.PartRays++;
+                }
                 else if (col.GetComponent<Heightmap>() != null) aim.GroundRays++;
                 else
                 {

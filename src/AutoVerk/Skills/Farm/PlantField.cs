@@ -12,14 +12,19 @@ namespace AutoVerk.Skills.Farm
     /// Plant a field with the Cultivator: a new one laid out in front of you (and saved), or a saved one to fill
     /// up. First, if asked, break the rocks that would stop the plants growing. Then spot by spot, nearest first:
     /// pick up a stone or branch on it (if asked), cultivate, sow. Rests when stamina runs low. A spot the game
-    /// keeps refusing, or with something in the way, is skipped and named in the report.
+    /// keeps refusing, or with something on it, is skipped and named in the report. Rocks on the way are jumped
+    /// over, never broken: a spot it can't get to stops the run.
     /// Not named Plant: the game has a global class of that name.
     /// </summary>
     public sealed class PlantField : Composite
     {
         private const int MaxTries = 3;
+        /// <summary>Walks to a spot that fail, each jumping when stuck, before the run stops.</summary>
+        private const int MaxReachTries = 3;
         /// <summary>Stand this far behind a spot along the path, on the side already worked, so the body never covers it.</summary>
         private const float StandBack = 1f;
+        /// <summary>A walk that stops short is good enough this close to the spot, and not on it.</summary>
+        private const float CloseEnoughMin = 0.5f, CloseEnoughMax = 2.5f;
         /// <summary>The game says no for a reason about the spot itself: one refusal is enough.</summary>
         private static readonly HashSet<string> SpotRefusals = new HashSet<string> { "no_space", "no_build_zone" };
 
@@ -32,6 +37,7 @@ namespace AutoVerk.Skills.Farm
         private readonly bool _mineRocks;
         private readonly Dictionary<int, string> _skipped = new Dictionary<int, string>();
         private readonly Dictionary<int, int> _tries = new Dictionary<int, int>();
+        private readonly Dictionary<int, int> _reachTries = new Dictionary<int, int>();
 
         /// <param name="fieldName">A saved field to fill up (it keeps its own seed), or null for a new one here.</param>
         /// <param name="pickStones">Pick up a stone or branch on a spot; without it, the spot is skipped.</param>
@@ -63,13 +69,18 @@ namespace AutoVerk.Skills.Farm
             }
 
             var spots = field.Spots();
+            Subject = $"{Senses.ItemName(plant.Crop)} · field {field.Name}";
+            AgainLine = $"plant field=\"{field.Name}\" stones={(_pickStones ? "yes" : "no")} rocks={(_mineRocks ? "yes" : "no")}";
+            AgainLabel = "Fill the rest";
             string rocks = null;
             if (_mineRocks)
             {
-                // Before any sowing: a pickaxe swing can destroy saplings nearby.
-                var clear = new ClearRocks(spots.Select(s => Fields.Ground(field, s)), RockRadius(plant));
-                yield return Try(clear);
-                rocks = clear.Report ?? Last.ToString();
+                // Before any sowing: a pickaxe swing can destroy saplings nearby. No pickaxe at all fails the run.
+                SetFact("Rocks", "breaking the ones on the field");
+                var clear = new ClearRocks(spots.Select(s => Fields.Ground(field, s)).Where(p => !Senses.UnderLiquid(p)), RockRadius(plant));
+                yield return Do(clear);
+                rocks = clear.Report;
+                SetFact("Rocks", rocks);
             }
 
             int planted = 0;
@@ -81,7 +92,11 @@ namespace AutoVerk.Skills.Farm
                 var next = Nearest(field, spots, plant, out var state, out var on, out var pos);
                 if (next == null) break;
                 var spot = next.Value;
-                Status = $"{field.Name}: spot {spot.Index + 1}/{field.Count}, {planted} planted";
+                var spotName = $"spot {spot.Index + 1}";
+                SetFact("Spot", $"{spot.Index + 1} of {field.Count}");
+                SetFact("Planted", planted.ToString());
+                SetFact("Skipped", _skipped.Count.ToString());
+                SetFact("Seeds left", Senses.Count(seed).ToString());
 
                 if (state == SpotState.Loose)
                 {
@@ -90,8 +105,18 @@ namespace AutoVerk.Skills.Farm
                         _skipped[spot.Index] = $"{Utils.GetPrefabName(on.gameObject)} on it";
                         continue;
                     }
+                    Status = $"picking up the {Utils.GetPrefabName(on.gameObject)} on {spotName}";
                     yield return Try(new MoveTo(on));
-                    if (Last.Ok) yield return Try(new Interact(on));
+                    if (!Last.Ok)
+                    {
+                        if (GaveUp(spot))
+                        {
+                            Summarize(field, plant, planted, outOfSeeds, rocks);
+                            yield return Fail(Last.Code, $"can't get to spot {spot.Index + 1}: {Last.Detail}");
+                        }
+                        continue;
+                    }
+                    yield return Try(new Interact(on));
                     if (!Last.Ok) Refused(spot, Last);
                     continue;
                 }
@@ -101,15 +126,23 @@ namespace AutoVerk.Skills.Farm
                     break;
                 }
 
+                var doing = state == SpotState.Empty ? $"tilling {spotName}" : $"sowing {spotName}";
+                Status = $"taking out the Cultivator for {spotName}";
                 yield return Do(new Equip(cultivator));
                 if (!Senses.Player.HaveStamina(cultivator.m_shared.m_attack.m_attackStamina)) yield return Try(new Rest());
                 var stand = pos - new Vector3((float)spot.PathX, 0f, (float)spot.PathZ) * StandBack;
                 if (Senses.FlatDistance(Senses.Player.transform.position, stand) > 0.5f)
                 {
-                    yield return Try(new MoveTo(stand, stopAt: 0.35f));
-                    if (!Last.Ok)
+                    yield return Try(new MoveTo(stand, stopAt: 0.35f, name: spotName));
+                    // Stuck short of the stand point, say on a rock: place from here if the spot is near.
+                    float off = Senses.FlatDistance(Senses.Player.transform.position, pos);
+                    if (!Last.Ok && (off < CloseEnoughMin || off > CloseEnoughMax))
                     {
-                        Refused(spot, Last);
+                        if (GaveUp(spot))
+                        {
+                            Summarize(field, plant, planted, outOfSeeds, rocks);
+                            yield return Fail(Last.Code, $"can't get to spot {spot.Index + 1}: {Last.Detail}");
+                        }
                         continue;
                     }
                 }
@@ -117,6 +150,7 @@ namespace AutoVerk.Skills.Farm
                 var table = Senses.BuildPieces();
                 var piece = state == SpotState.Empty ? SpotProbe.CultivatePiece(table) : SpotProbe.SaplingPiece(table, plant);
                 if (piece == null) yield return Fail("no_tool", $"the {Senses.ItemId(cultivator)} can't plant {seed}");
+                Status = doing;
                 yield return Try(new Place(piece, pos));
                 if (Last.Ok)
                 {
@@ -133,10 +167,89 @@ namespace AutoVerk.Skills.Farm
                 else Refused(spot, Last);
             }
 
-            Report = $"{planted} planted on {field.Name}"
-                     + (_skipped.Count > 0 ? $"; skipped {string.Join(", ", _skipped.Select(s => $"spot {s.Key + 1} ({s.Value})"))}" : "")
-                     + (outOfSeeds ? $"; out of {seed}" : "")
-                     + (rocks != null ? $"; {rocks}" : "");
+            Summarize(field, plant, planted, outOfSeeds, rocks);
+        }
+
+        /// <summary>
+        /// The window's facts and heading once it's done, the report for the log, and red poles on the skipped
+        /// spots so they can be found in the world.
+        /// </summary>
+        private void Summarize(Field field, PlantData plant, int planted, bool outOfSeeds, string rocks)
+        {
+            int total = 0;
+            Markers.Hide();
+            foreach (var spot in field.Spots())
+            {
+                var at = Fields.Ground(field, spot);
+                if (SpotProbe.Probe(at, (float)field.Spacing, plant, out _, out _) == SpotState.Planted) total++;
+                else if (_skipped.ContainsKey(spot.Index)) Markers.Pole(at, Markers.Blocked, $"spot {spot.Index + 1}");
+            }
+
+            ClearFacts();
+            SetFact("Planted", $"{total} of {field.Count} spots" + (planted < total ? $", {planted} just now" : ""));
+            if (_skipped.Count > 0) SetFact("Skipped", SkippedText());
+            if (rocks != null) SetFact("Rocks", rocks);
+            var seedName = Senses.ItemName(field.Seed);
+            Headline = outOfSeeds ? $"Stopped: out of {seedName.ToLowerInvariant()}"
+                : total == field.Count ? "Field planted"
+                : null;
+            Advice = _skipped.Count > 0 ? "Skipped spots are marked in the world." : null;
+            if (total == field.Count) AgainLine = null;
+            Report = string.Join(" · ", new[] { Headline }.Where(h => h != null).Concat(Facts.Select(f => $"{f.Key}: {f.Value}")));
+        }
+
+        /// <summary>"5 spots, Rock on it", or with more reasons "5 spots: 3 Rock on it, 2 can't reach".</summary>
+        private string SkippedText()
+        {
+            var groups = _skipped.GroupBy(s => s.Value).OrderByDescending(g => g.Count()).ToList();
+            var spots = $"{_skipped.Count} spot{(_skipped.Count == 1 ? "" : "s")}";
+            return groups.Count == 1 ? $"{spots}, {groups[0].Key}" : $"{spots}: {string.Join(", ", groups.Select(g => $"{g.Count()} {g.Key}"))}";
+        }
+
+        /// <summary>The rows a new field will have, or null while the boxes don't hold numbers.</summary>
+        public static int? Rows(FormValues v)
+        {
+            var count = v.Number("count");
+            var line = v.Number("line");
+            if (count == null || line == null || count < 1 || line < 1) return null;
+            return (int)Math.Ceiling(count.Value / Math.Min(line.Value, count.Value));
+        }
+
+        /// <summary>The window's box: what the form will plant, and what will go wrong.</summary>
+        public static FormSummary Summary(FormValues v)
+        {
+            string fieldName = v.Text("field");
+            string seed;
+            int count;
+            string text;
+            if (fieldName == "")
+            {
+                seed = v.Item("seed");
+                count = (int)(v.Number("count") ?? 0);
+                var crop = PlantData.ForSeed(seed);
+                var rows = Rows(v);
+                text = $"{count} × {(crop != null ? Senses.ItemName(crop.Crop) : "?")}" +
+                       (rows != null ? $" · {rows} {v.Text("layout")} row{(rows == 1 ? "" : "s")}" : "") + " · new field";
+            }
+            else
+            {
+                var field = Fields.Load(out _)?.Find(fieldName);
+                if (field == null) return new FormSummary { Text = fieldName, Warning = "There's no such field in this world" };
+                seed = field.Seed;
+                count = field.Count;
+                var crop = PlantData.ForSeed(seed);
+                text = $"Fill up {field.Name} · {count} × {(crop != null ? Senses.ItemName(crop.Crop) : seed)}";
+            }
+
+            string warning = null;
+            int seeds = string.IsNullOrEmpty(seed) ? 0 : Senses.Count(seed);
+            if (SpotProbe.FindCultivator() == null) warning = "No Cultivator in your pack";
+            else if (string.IsNullOrEmpty(seed)) warning = "No seeds in your pack";
+            else if (seeds == 0) warning = $"No {Senses.ItemName(seed).ToLowerInvariant()} in your pack";
+            else if (v.Bool("rocks") && Senses.Pickaxe() == null) warning = "No pickaxe: it stops at the first rock";
+            else if (fieldName == "" && seeds < count) warning = $"Only {seeds} seeds: {count - seeds} spots stay empty";
+            else if (fieldName != "" && seeds < count) warning = $"Only {seeds} seeds for {count} spots";
+            return new FormSummary { Text = text, Warning = warning };
         }
 
         /// <summary>
@@ -146,7 +259,7 @@ namespace AutoVerk.Skills.Farm
         public string Preview()
         {
             Markers.Hide();
-            var field = Choose(out var book, out var plant, out var failure);
+            var field = Choose(out _, out var plant, out var failure);
             if (field == null) return failure.Detail;
             float radius = RockRadius(plant);
             int free = 0, clear = 0, blocked = 0, done = 0;
@@ -164,10 +277,15 @@ namespace AutoVerk.Skills.Farm
                 else { color = Markers.Blocked; blocked++; }
                 Markers.Pole(at, color, $"spot {spot.Index + 1}");
             }
-            var name = book.Fields.Contains(field) ? field.Name : $"{field.Name} (new, not saved)";
-            return $"{name}: {free} ready (green), {clear} to clear first (yellow), {blocked} to skip (red)" +
-                   (done > 0 ? $", {done} planted (blue)" : "");
+            // In the poles' colours, for the window's summary box.
+            var parts = new List<string> { Tinted($"{free} ready", Markers.Free) };
+            if (clear > 0) parts.Add(Tinted($"{clear} to clear first", Markers.Clear));
+            if (blocked > 0) parts.Add(Tinted($"{blocked} to skip", Markers.Blocked));
+            if (done > 0) parts.Add(Tinted($"{done} planted already", Markers.Done));
+            return string.Join(" · ", parts);
         }
+
+        private static string Tinted(string text, Color color) => $"<color=#{ColorUtility.ToHtmlStringRGB(color)}>{text}</color>";
 
         /// <summary>
         /// The field to work and what grows there: the saved one asked for, or a new one laid out in front of the
@@ -222,6 +340,11 @@ namespace AutoVerk.Skills.Farm
                 var at = Fields.Ground(field, spot);
                 var s = SpotProbe.Probe(at, (float)field.Spacing, plant, out var what, out var name);
                 if (s == SpotState.Planted) continue;
+                if (s == SpotState.Water)
+                {
+                    _skipped[spot.Index] = "in the water";
+                    continue;
+                }
                 if (s == SpotState.Taken || s == SpotState.Blocked)
                 {
                     _skipped[spot.Index] = $"{name} on it";
@@ -243,7 +366,18 @@ namespace AutoVerk.Skills.Farm
         {
             _tries.TryGetValue(spot.Index, out var n);
             _tries[spot.Index] = ++n;
-            if (SpotRefusals.Contains(result.Code) || n >= MaxTries) _skipped[spot.Index] = result.Detail ?? result.Code;
+            if (SpotRefusals.Contains(result.Code) || n >= MaxTries) _skipped[spot.Index] = Skips.Reason(result);
+        }
+
+        /// <summary>
+        /// A walk to the spot failed, jumps and all. After a few the run stops: rocks are broken only on the
+        /// field's spots, never on the way.
+        /// </summary>
+        private bool GaveUp(Spot spot)
+        {
+            _reachTries.TryGetValue(spot.Index, out var n);
+            _reachTries[spot.Index] = ++n;
+            return n >= MaxReachTries;
         }
 
         private static string Save(FieldBook book, Field field)

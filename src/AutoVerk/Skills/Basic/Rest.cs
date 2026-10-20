@@ -14,7 +14,7 @@ namespace AutoVerk.Skills.Basic
             float now = p.GetStamina(), max = p.GetMaxStamina();
             if (now >= max - 0.5f) return Result.Success;
             if (Elapsed > Timeout) return Result.Fail("timeout", $"stamina {now:0}/{max:0} after {Timeout:0} s");
-            Status = $"resting, stamina {now:0}/{max:0}";
+            Status = $"resting until stamina is back: {now:0} of {max:0}";
             return Result.Running;
         }
     }

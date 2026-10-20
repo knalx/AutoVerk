@@ -51,6 +51,18 @@ namespace AutoVerk.Skills.Farm
             else File.Move(tmp, path);
         }
 
+        /// <summary>Forgets a saved field; its plants stay in the world. What happened, for the window.</summary>
+        public static string Delete(string name)
+        {
+            var book = Load(out var error);
+            if (book == null) return error;
+            var field = book.Find(name);
+            if (field == null) return $"no field {name} in this world";
+            book.Fields.Remove(field);
+            Save(book);
+            return $"Deleted the field {name}; its plants stay.";
+        }
+
         /// <summary>The names of the world's saved fields, for the window.</summary>
         public static IEnumerable<string> Names() => Load(out _)?.Fields.Select(f => f.Name) ?? Enumerable.Empty<string>();
 

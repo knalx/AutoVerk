@@ -61,6 +61,16 @@ namespace AutoVerk.Game
         /// <summary>The point of an object's box nearest to a point.</summary>
         public static Vector3 NearestPoint(Component target, Vector3 from) => Bounds(target).ClosestPoint(from);
 
+        /// <summary>The name the game shows for an item id: "Carrot seeds" for CarrotSeeds; the id when unknown.</summary>
+        public static string ItemName(string id)
+        {
+            if (string.IsNullOrEmpty(id) || ObjectDB.instance == null) return id;
+            var prefab = ObjectDB.instance.GetItemPrefab(id);
+            var key = prefab != null ? prefab.GetComponent<ItemDrop>()?.m_itemData?.m_shared?.m_name : null;
+            if (string.IsNullOrEmpty(key) || Localization.instance == null) return id;
+            return Localization.instance.Localize(key);
+        }
+
         /// <summary>An inventory item's id, its prefab name: "CarrotSeeds".</summary>
         public static string ItemId(ItemDrop.ItemData item) => item?.m_dropPrefab != null ? item.m_dropPrefab.name : null;
 
@@ -106,6 +116,9 @@ namespace AutoVerk.Game
 
         /// <summary>The pieces the tool in hand can place (hammer, cultivator, hoe), or null.</summary>
         public static PieceTable BuildPieces() => InHand()?.m_shared?.m_buildPieces;
+
+        /// <summary>Water (or tar) stands over this point of the ground: the sea, a lake, a river. Waves count.</summary>
+        public static bool UnderLiquid(Vector3 ground) => Floating.GetLiquidLevel(ground, 1f) > ground.y;
 
         /// <summary>A living creature that's hostile to the player.</summary>
         public static bool IsEnemy(Character c) => c != null && !c.IsDead() && BaseAI.IsEnemy(c, Player);

@@ -24,9 +24,10 @@ namespace AutoVerk.Game
         /// <summary>Unity's == treats a root destroyed with the scene as null.</summary>
         public static bool Showing => _root != null;
 
-        /// <summary>A pole 0.8 m tall standing on a point.</summary>
+        /// <summary>A pole 0.8 m tall standing on a point, or on the water over it so it can be seen.</summary>
         public static void Pole(Vector3 at, Color color, string name = "marker")
         {
+            at.y = Mathf.Max(at.y, Floating.GetLiquidLevel(at, 1f));
             if (_root == null) _root = new GameObject("AutoVerkMarkers");
             var pole = GameObject.CreatePrimitive(PrimitiveType.Cylinder);
             pole.name = name;

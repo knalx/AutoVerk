@@ -11,18 +11,20 @@ Early version: expect rough edges, and tell us about them on
 
 ## Skills
 
-- **collect**: pick up the items lying around.
-- **plant**: plant a field with the Cultivator. It clears stones and rocks in the way (breaking rocks needs
-  a pickaxe), cultivates and sows. A new field is laid out in front of you and saved, so you can fill it up
-  later.
+- **Gather plants**: pick the ripe crops, berries and mushrooms around you, one kind or everything, and
+  what falls on the ground.
+- **Plant a field**: plant a field with the Cultivator. It picks up stones and, if you want, breaks rocks
+  on the spots (needs a pickaxe), tills and sows; spots under water are skipped. A new field is laid out in
+  front of you and saved, so you can fill it up later. **Preview** marks the spots in the world first.
 
 While a skill runs, AutoVerk fights back when a monster comes at you. Turn that off in the Settings tab.
 
 ## Use
 
-- **F7** opens the window: pick a skill, fill in its fields, press **Start**.
-- Or in the console (F5): `autoverk run collect radius=10`, `autoverk stop`, `autoverk skills`. A run starts
-  when you close the console.
+- **F7** opens the window: pick a task, fill in its fields, press **Start**. While it runs, the window
+  shows what it's doing; when it's done, what happened.
+- Or in the console (F5): `autoverk run gather plants=Carrot`, `autoverk stop`, `autoverk skills`. A run
+  starts when you close the console.
 - Any key, click or open menu pauses the run. **Resume** in the window carries on.
 
 Client-side only: other players don't need it, and it works on any server.

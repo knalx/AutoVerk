@@ -28,6 +28,19 @@ namespace AutoVerk.Game
             return null;
         }
 
+        /// <summary>
+        /// The name the game shows on hover ("Rock", "Copper deposit"), else the prefab's. A big rock's own object
+        /// is named after its mesh: ___MineRock5.
+        /// </summary>
+        public static string Name(Component rock)
+        {
+            if (rock == null) return "the rock";
+            var key = rock is MineRock5 m5 ? m5.m_name : rock is MineRock m ? m.m_name : null;
+            if (!string.IsNullOrEmpty(key) && Localization.instance != null) return Localization.instance.Localize(key);
+            var name = Utils.GetPrefabName(rock.transform.root.gameObject);
+            return name.StartsWith("___") ? "Large rock" : name;
+        }
+
         /// <summary>The lowest pickaxe tier that damages a rock.</summary>
         public static int Tier(Component rock) =>
             rock is Destructible d ? d.m_minToolTier : rock is MineRock m ? m.m_minToolTier : rock is MineRock5 m5 ? m5.m_minToolTier : 0;
@@ -36,7 +49,8 @@ namespace AutoVerk.Game
         /// The breakable rock nearest to a point within some metres, in a column up to 1.5 m above it, and which of
         /// its colliders is nearest: a big rock breaks part by part. Null when there's none.
         /// </summary>
-        public static Component Find(Vector3 pos, float radius, out Collider part, System.Func<Component, bool> skip = null)
+        /// <param name="skip">Parts to leave out, like ones that couldn't be hit.</param>
+        public static Component Find(Vector3 pos, float radius, out Collider part, System.Func<Collider, bool> skip = null)
         {
             Component best = null;
             part = null;
@@ -45,9 +59,9 @@ namespace AutoVerk.Game
             for (int i = 0; i < n; i++)
             {
                 var col = Hits[i];
-                if (col.isTrigger || !col.enabled) continue;
+                if (col.isTrigger || !col.enabled || (skip != null && skip(col))) continue;
                 var rock = Breakable(col);
-                if (rock == null || (skip != null && skip(rock))) continue;
+                if (rock == null) continue;
                 float d = Senses.FlatDistance(pos, ClosestPoint(col, pos));
                 if (d >= bestDistance) continue;
                 bestDistance = d;

@@ -89,6 +89,54 @@ namespace AutoVerk.Skills.Farm
             return _cropPrefabs.Contains(prefab);
         }
 
+        /// <summary>
+        /// A plant to gather, ripe now: something plantable (a crop, a seed), or a wild plant (berries, mushrooms,
+        /// thistle). Not stones, branches or flint, though they grow back too.
+        /// </summary>
+        public static bool IsRipePlant(Pickable p) =>
+            p != null && p.m_itemPrefab != null && p.CanBePicked() && (IsPlantable(p) || IsWild(p));
+
+        /// <summary>The item a pickable gives: Carrot, Raspberry.</summary>
+        public static string Yield(Pickable p) => p.m_itemPrefab.name;
+
+        /// <summary>
+        /// Something farming grows or sows: a crop a plant grows into (carrot, turnip), or a pickable whose item is
+        /// a seed for one (barley, flax, wild carrot seeds).
+        /// </summary>
+        public static bool IsPlantable(Pickable p) =>
+            p?.m_itemPrefab != null && (IsCrop(Utils.GetPrefabName(p.gameObject)) || ForSeed(Yield(p)) != null);
+
+        /// <summary>
+        /// A wild plant that's ripe: one that grows back by itself and can't be planted (raspberries, blueberries,
+        /// mushrooms, thistle). Branches, flint and stones grow back too, so it has to give something a plant
+        /// gives: food, a crop the scythe harvests, or a light herb; wood, flint and stone are heavy.
+        /// </summary>
+        public static bool IsWild(Pickable p)
+        {
+            if (p?.m_itemPrefab == null || !p.CanBePicked() || p.m_respawnTimeMinutes <= 0f || IsPlantable(p)) return false;
+            var shared = p.m_itemPrefab.GetComponent<ItemDrop>()?.m_itemData?.m_shared;
+            if (shared == null) return false;
+            return shared.m_itemType == ItemDrop.ItemData.ItemType.Consumable || p.m_harvestable || shared.m_weight < LightHerb;
+        }
+
+        /// <summary>Herbs like thistle and dandelion weigh 0.1; branches, flint and stones 1 or more.</summary>
+        private const float LightHerb = 0.5f;
+
+        /// <summary>The stones and wood a pickable gives, lying around: loose stones, fallen branches.</summary>
+        public static readonly HashSet<string> LooseItems = new HashSet<string> { "Stone", "Wood" };
+
+        /// <summary>A loose stone or branch to pick up.</summary>
+        public static bool IsLoose(Pickable p) => p?.m_itemPrefab != null && p.CanBePicked() && LooseItems.Contains(Yield(p));
+
+        /// <summary>Not under water: the hero can walk up to it and pick it.</summary>
+        public static bool Reachable(Component c) => !Senses.UnderLiquid(c.transform.position);
+
+        /// <summary>The kinds of ripe, reachable plants within some metres, by the item they give, for the window's dropdown.</summary>
+        public static IEnumerable<string> RipeAround(float radius) =>
+            Senses.Player == null ? Enumerable.Empty<string>()
+                : Senses.Around<Pickable>(radius).Where(p => IsRipePlant(p) && Reachable(p)).Select(Yield).Distinct()
+                    .OrderBy(Senses.ItemName).ToList();
+
         /// <summary>The prefabs come with the world: forget what was read for the last one.</summary>
         private static bool Fresh()
         {

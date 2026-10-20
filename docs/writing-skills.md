@@ -99,6 +99,10 @@ your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`.
 
 - A building block that's no job on its own, like `move_to`, gets `ForDevelopers = true`: it stays out of
   the window and runs from the console for testing (`autoverk skills all` lists it).
+- For the window: `Title` ("Plant a field"), `Doing` ("Planting"), `StartText`, `StopNote`, and on each
+  parameter `.Shows(label, section, hint)`, `.ShownWhen(...)` and `.WithNote(...)`. Hints, notes and the
+  `Summary` box get the form's values as they stand. While it runs, a skill sets `Subject` and
+  `SetFact("Planted", "4")`; once done, `Headline`, `Advice` and `AgainLine`/`AgainLabel` ("Fill the rest").
 - To show where a skill would work before it starts, set `Preview = args => …`: stand `Markers.Pole`s on
   the ground and return a line saying what you found. The window then offers a Preview button.
 - To offer values in a dropdown, add `.WithSuggestions(() => seeds, "anything")` to a parameter; the second

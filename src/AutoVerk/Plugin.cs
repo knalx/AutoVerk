@@ -3,6 +3,7 @@ using System.Globalization;
 using AutoVerk.Engine;
 using AutoVerk.Game;
 using AutoVerk.Skills;
+using AutoVerk.Skills.Basic;
 using AutoVerk.Ui;
 using BepInEx;
 using BepInEx.Configuration;
@@ -33,6 +34,7 @@ namespace AutoVerk
         private ConfigEntry<string> _lastStart;
         /// <summary>On or off for each interruption (reflex), by id; other mods' ones are added as they show up.</summary>
         private readonly Dictionary<string, ConfigEntry<bool>> _interruptions = new Dictionary<string, ConfigEntry<bool>>();
+        private ConfigEntry<bool> _jumpWhenStuck;
         private SkillForm _form;
         private Window _window;
         private float _nextRefresh;
@@ -43,6 +45,10 @@ namespace AutoVerk
         private Skill _pending;
         private bool _resumePending;
         private RunState _shownState;
+        /// <summary>The finished run's result was closed: the window shows the form again.</summary>
+        private bool _resultSeen;
+        /// <summary>What the preview found, shown while its markers stand.</summary>
+        private string _previewText;
 
         public Runner Runner { get; private set; }
 
@@ -53,6 +59,9 @@ namespace AutoVerk
             _windowPosition = Config.Bind("Window", "Position", "-20, -100",
                 "The window's top-right corner, from the screen's top-right corner. Saved when you move it.");
             _lastStart = Config.Bind("Window", "LastStart", "", "The window's last start, as a console line. Filled in next time.");
+            _jumpWhenStuck = Config.Bind("Movement", "JumpWhenStuck", true,
+                "Jump (twice) when stuck on the way before giving up. Off: give up at once.");
+            MoveTo.JumpWhenStuck = _jumpWhenStuck.Value;
 
             Runner = new Runner(() => Time.timeAsDouble, text => Log.LogInfo(text));
             Runner.Guards.Add(new PlayerGuard());
@@ -70,8 +79,19 @@ namespace AutoVerk
             {
                 Start = StartFromWindow,
                 Preview = PreviewFromWindow,
+                Press = p =>
+                {
+                    _message = _form.Press(p);
+                    _nextRefresh = 0f;
+                },
                 Resume = () => _message = ResumeWhenFree(),
                 Stop = () => Runner.Stop("stopped from the window"),
+                Again = AgainFromWindow,
+                Close = () =>
+                {
+                    _resultSeen = true;
+                    _window.SetVisible(false);
+                },
                 Changed = () => _nextRefresh = 0f,
                 Moved = corner => _windowPosition.Value = string.Format(CultureInfo.InvariantCulture, "{0:0}, {1:0}", corner.x, corner.y),
             }, _form, ParseCorner(_windowPosition.Value));
@@ -128,6 +148,7 @@ namespace AutoVerk
                     Runner.Start(_pending);
                     _pending = null;
                     _message = null;
+                    _resultSeen = false;
                     return;
                 }
                 if (_resumePending)
@@ -148,6 +169,7 @@ namespace AutoVerk
             var busy = Senses.Busy(Senses.Player);
             if (busy != null) return $"can't start: the character is {busy}";
             Markers.Hide();
+            _previewText = null;
             _pending = skill;
             var menu = Senses.OpenMenu();
             return menu == null ? $"starting {skill}" : $"{skill} starts when you close the {menu}";
@@ -175,39 +197,75 @@ namespace AutoVerk
             _nextRefresh = 0f;
         }
 
-        /// <summary>Shows the chosen skill's preview, or hides the one showing.</summary>
+        /// <summary>
+        /// Shows the chosen skill's preview, its line in the summary box while the markers stand, or hides the one
+        /// showing. A preview that stood no markers said why not: that goes under the box like Start's errors.
+        /// </summary>
         private void PreviewFromWindow()
         {
-            if (Markers.Showing)
+            _message = null;
+            _previewText = null;
+            if (Markers.Showing) Markers.Hide();
+            else
             {
-                Markers.Hide();
-                _message = null;
+                var said = _form.Preview();
+                if (Markers.Showing) _previewText = said;
+                else _message = said;
             }
-            else _message = _form.Preview();
+            _nextRefresh = 0f;
+        }
+
+        /// <summary>Finished: carry on the job its own way (Fill the rest), or back to the form for a new one.</summary>
+        private void AgainFromWindow()
+        {
+            _resultSeen = true;
+            var line = Runner.Root?.AgainLine;
+            if (line == null)
+            {
+                _nextRefresh = 0f;
+                return;
+            }
+            var skill = Registry.FromLine(line, out var error);
+            _message = skill == null ? error : StartWhenFree(skill);
             _nextRefresh = 0f;
         }
 
         private Window.View BuildView()
         {
             var v = new Window.View();
+            var root = Runner.Root;
+            var info = root?.Info;
             switch (Runner.State)
             {
                 case RunState.Running:
                     v.Look = Window.Look.Running;
-                    v.Rows.Add(Row("doing", Runner.Path));
-                    if (Runner.Status != null) v.Rows.Add(Row("now", Runner.Status));
+                    v.Heading = $"{info?.Doing ?? root.ToString()}…";
+                    Describe(v, root);
+                    v.Footnote = "Any key pauses.";
                     break;
                 case RunState.Paused:
                     v.Look = Window.Look.Paused;
-                    v.Rows.Add(Row("paused", Runner.PauseReason));
-                    v.Rows.Add(Row("doing", Runner.Path));
-                    v.Body = _message ?? "Resume starts the interrupted step again; it checks its target first.";
+                    v.Heading = "Paused";
+                    Describe(v, root);
+                    v.Footnote = $"{Capitalized(Runner.PauseReason)}. {info?.StopNote ?? "Resume carries on where it was."}";
+                    break;
+                case RunState.Finished when !_resultSeen:
+                    v.Look = Window.Look.Finished;
+                    var outcome = Runner.Outcome;
+                    v.Heading = root.Headline ?? (outcome.Ok ? "Done"
+                        : outcome.Code == "stopped" ? "Stopped"
+                        : $"Stopped: {outcome.Detail ?? outcome.Code}");
+                    Describe(v, root);
+                    if (v.Facts.Count == 0 && root.Report != null) v.Facts.Add(Row("Result", root.Report));
+                    v.AgainButton = root.AgainLine != null ? root.AgainLabel ?? "Again" : "New task";
+                    v.Footnote = _message ?? root.Advice ?? (outcome.Code == "stopped" ? info?.StopNote : null);
                     break;
                 default:
                     v.Look = Window.Look.Form;
-                    v.Body = _message ?? (Runner.State == RunState.Finished ? Commands.Describe(Runner) : null);
-                    // Hide stays offered after switching to a skill without a preview.
-                    v.PreviewButton = Markers.Showing ? "Hide" : _form.CanPreview ? "Preview" : null;
+                    v.Message = _message;
+                    v.Previewing = Markers.Showing;
+                    // Markers also stand on a finished run's skipped spots, with no preview line.
+                    v.PreviewText = Markers.Showing ? _previewText : null;
                     ApplyInterruptionSettings();
                     foreach (var reflex in Registry.Reflexes)
                     {
@@ -216,11 +274,20 @@ namespace AutoVerk
                         v.Settings.Add(new Window.Setting
                         {
                             Id = r.Id,
+                            Section = "Interruptions",
                             Label = r.Description,
                             On = () => entry.Value,
                             SetOn = on => r.Enabled = entry.Value = on,
                         });
                     }
+                    v.Settings.Add(new Window.Setting
+                    {
+                        Id = "jump",
+                        Section = "Movement",
+                        Label = "Jump when stuck on the way",
+                        On = () => _jumpWhenStuck.Value,
+                        SetOn = on => MoveTo.JumpWhenStuck = _jumpWhenStuck.Value = on,
+                    });
                     break;
             }
             return v;
@@ -236,6 +303,19 @@ namespace AutoVerk
                 reflex.Enabled = entry.Value;
             }
         }
+
+        /// <summary>
+        /// The run's subject and facts. While it runs or waits, what it's doing this moment goes first, from the
+        /// deepest step that says: "Mining Large rock (swing 2)", "Resting until stamina is back: 34 of 100".
+        /// </summary>
+        private void Describe(Window.View v, Skill root)
+        {
+            v.Subject = root.Subject;
+            if (Runner.State != RunState.Finished && Runner.Status != null) v.Facts.Add(Row("Now", Capitalized(Runner.Status)));
+            v.Facts.AddRange(root.Facts);
+        }
+
+        private static string Capitalized(string s) => string.IsNullOrEmpty(s) ? s : char.ToUpperInvariant(s[0]) + s.Substring(1);
 
         private static KeyValuePair<string, string> Row(string label, string value) => new KeyValuePair<string, string>(label, value);
 

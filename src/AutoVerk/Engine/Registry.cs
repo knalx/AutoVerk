@@ -26,11 +26,71 @@ namespace AutoVerk.Engine
         /// <summary>What the dropdown says for an empty value: "new", "anything".</summary>
         public string EmptyText { get; private set; }
 
+        /// <summary>The window's name for it: "Per row". Defaults to the name.</summary>
+        public string Label { get; private set; }
+
+        /// <summary>The window groups parameters under this heading: "Crop". Null for none.</summary>
+        public string Section { get; private set; }
+
+        /// <summary>The window's note right of the box, read afresh as the form changes: "6 in your pack". Defaults to the description.</summary>
+        public Func<FormValues, string> Hint { get; private set; }
+
+        /// <summary>A line under the row, or null: "The new field is laid out in front of you."</summary>
+        public Func<FormValues, string> Note { get; private set; }
+
+        /// <summary>Whether the window shows the row now; a hidden one keeps its value.</summary>
+        public Func<FormValues, bool> Shown { get; private set; }
+
+        /// <summary>How the window says a value: "Staggered" for staggered.</summary>
+        public Func<string, string> Names { get; private set; }
+
         /// <summary>Offer these values in the window's dropdown.</summary>
         public Param WithSuggestions(Func<IEnumerable<string>> suggestions, string emptyText = null)
         {
             Suggestions = suggestions;
             EmptyText = emptyText;
+            return this;
+        }
+
+        /// <summary>For the window: the row's label and section, and a hint that may follow the other fields.</summary>
+        public Param Shows(string label, string section = null, Func<FormValues, string> hint = null)
+        {
+            Label = label;
+            Section = section;
+            Hint = hint;
+            return this;
+        }
+
+        public Param WithNote(Func<FormValues, string> note)
+        {
+            Note = note;
+            return this;
+        }
+
+        public Param ShownWhen(Func<FormValues, bool> shown)
+        {
+            Shown = shown;
+            return this;
+        }
+
+        public Param WithNames(Func<string, string> names)
+        {
+            Names = names;
+            return this;
+        }
+
+        /// <summary>A button beside the box, or null: "Delete" for a saved field.</summary>
+        public ParamButton Button { get; private set; }
+
+        /// <summary>
+        /// A button beside the box, shown when <paramref name="shown"/> says. Pressing it calls
+        /// <paramref name="press"/>, which says what it did; with <paramref name="confirm"/> the first press only
+        /// asks; with <paramref name="clears"/> the box is emptied after.
+        /// </summary>
+        public Param WithButton(string label, Func<FormValues, string> press, Func<FormValues, bool> shown = null,
+            bool confirm = false, bool clears = false)
+        {
+            Button = new ParamButton { Label = label, Press = press, Shown = shown, Confirm = confirm, Clears = clears };
             return this;
         }
 
@@ -59,12 +119,34 @@ namespace AutoVerk.Engine
         /// <summary>Lowercase snake_case; prefix it with your mod's name: mymod.pick_stones.</summary>
         public string Id { get; set; }
         public string Description { get; set; }
+
+        private string _title;
+        private string _doing;
+
+        /// <summary>The window's name for it: "Plant a field". Defaults to the id.</summary>
+        public string Title { get => _title ?? Id; set => _title = value; }
+
+        /// <summary>The window's heading while it runs, without the dots: "Planting". Defaults to the title.</summary>
+        public string Doing { get => _doing ?? Title; set => _doing = value; }
+
+        /// <summary>The window's start button: "Start planting".</summary>
+        public string StartText { get; set; } = "Start";
+
+        /// <summary>The window's preview button: "Show in world".</summary>
+        public string PreviewText { get; set; } = "Preview";
+
+        /// <summary>What stopping leaves behind, under the Stop button: "Stop keeps what's planted."</summary>
+        public string StopNote { get; set; }
+
+        /// <summary>The box over the start button, read afresh as the form changes. Null for none.</summary>
+        public Func<FormValues, FormSummary> Summary { get; set; }
         public List<Param> Params { get; } = new List<Param>();
         public Func<Args, Skill> Create { get; set; }
 
         /// <summary>
         /// Optional: show where the skill would work without doing anything, like markers on a field's spots, and
-        /// say what it found in a line. The window's Preview button and <c>autoverk preview</c> call it.
+        /// say what it found in a line (rich text colours are fine). The window's Preview button shows the line in
+        /// the summary box while the markers stand; <c>autoverk preview</c> prints it.
         /// </summary>
         public Func<Args, string> Preview { get; set; }
 
@@ -164,8 +246,41 @@ namespace AutoVerk.Engine
             return words;
         }
 
-        private static bool IsYes(string v) => v == "yes" || v == "true" || v == "1";
-        private static bool IsNo(string v) => v == "no" || v == "false" || v == "0";
+        internal static bool IsYes(string v) => v == "yes" || v == "true" || v == "1";
+        internal static bool IsNo(string v) => v == "no" || v == "false" || v == "0";
+    }
+
+    /// <summary>The form's values as they stand, unchecked, for hints and the summary while the player types.</summary>
+    public sealed class FormValues
+    {
+        private readonly Func<string, string> _value;
+
+        public FormValues(Func<string, string> value) { _value = value; }
+
+        public string Text(string name) => _value(name) ?? "";
+        public string Item(string name) => Text(name);
+        public bool Bool(string name) => Args.IsYes(Text(name));
+
+        /// <summary>Null while the box doesn't hold a number.</summary>
+        public float? Number(string name) =>
+            float.TryParse(Text(name), NumberStyles.Float, CultureInfo.InvariantCulture, out var v) ? v : (float?)null;
+    }
+
+    /// <summary>A button beside a parameter's box: see <see cref="Param.WithButton"/>.</summary>
+    public sealed class ParamButton
+    {
+        public string Label;
+        public Func<FormValues, string> Press;
+        public Func<FormValues, bool> Shown;
+        public bool Confirm;
+        public bool Clears;
+    }
+
+    /// <summary>The window's box over the start button: what will happen, and a warning in orange.</summary>
+    public sealed class FormSummary
+    {
+        public string Text;
+        public string Warning;
     }
 
     /// <summary>The skills the window and the console can start, and the reflexes. Register yours at start-up.</summary>
@@ -212,7 +327,10 @@ namespace AutoVerk.Engine
         public static Skill FromLine(string line, out string error)
         {
             var args = ArgsFromLine(line, out var info, out error);
-            return args == null ? null : info.Create(args);
+            if (args == null) return null;
+            var skill = info.Create(args);
+            if (skill != null) skill.Info = info;
+            return skill;
         }
 
         /// <summary>Previews a skill from a console line: what it found, or why not.</summary>

@@ -53,6 +53,13 @@ namespace AutoVerk.Ui
         /// <summary>The chosen skill has a preview.</summary>
         public bool CanPreview => Skill?.Preview != null;
 
+        /// <summary>The fields as they stand, for hints and the summary.</summary>
+        public FormValues Values => new FormValues(name =>
+        {
+            var p = Skill?.Params.FirstOrDefault(x => x.Name == name);
+            return p == null ? null : Value(p);
+        });
+
         /// <summary>The chosen skill as filled in, or null and why not.</summary>
         public Skill Create(out string error)
         {
@@ -61,7 +68,9 @@ namespace AutoVerk.Ui
             if (args == null) return null;
             try
             {
-                return info.Create(args);
+                var skill = info.Create(args);
+                if (skill != null) skill.Info = info;
+                return skill;
             }
             catch (Exception e)
             {
@@ -85,6 +94,27 @@ namespace AutoVerk.Ui
             {
                 return $"{info.Id} couldn't preview: {e.Message}";
             }
+        }
+
+        /// <summary>
+        /// Presses a parameter's button: what it did, or why not. One that clears empties the box, and the
+        /// suggestions are read again, so a deleted field leaves the dropdown.
+        /// </summary>
+        public string Press(Param p)
+        {
+            if (p?.Button == null) return null;
+            string said;
+            try
+            {
+                said = p.Button.Press(Values);
+            }
+            catch (Exception e)
+            {
+                return $"{p.Button.Label} failed: {e.Message}";
+            }
+            if (p.Button.Clears) Set(p, "");
+            Refresh();
+            return said;
         }
 
         /// <summary>The fields' values, checked, or null and why not.</summary>

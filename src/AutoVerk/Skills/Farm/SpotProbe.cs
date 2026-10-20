@@ -17,6 +17,8 @@ namespace AutoVerk.Skills.Farm
         Taken,
         /// <summary>A rock, a stump, a building.</summary>
         Blocked,
+        /// <summary>Under water: nothing can be planted there.</summary>
+        Water,
     }
 
     /// <summary>What stands on one field spot, looked at fresh.</summary>
@@ -36,6 +38,12 @@ namespace AutoVerk.Skills.Farm
         /// <param name="what">What's on it: the prefab name of the plant, pickable or blocker.</param>
         public static SpotState Probe(Vector3 pos, float spacing, PlantData plant, out Component on, out string what)
         {
+            if (Senses.UnderLiquid(pos))
+            {
+                on = null;
+                what = "water";
+                return SpotState.Water;
+            }
             float radius = Mathf.Min(0.4f, spacing * 0.45f);
             Plant onPlant = null;
             Pickable onPickable = null;
@@ -55,7 +63,8 @@ namespace AutoVerk.Skills.Farm
                 }
                 var p = col.GetComponentInParent<Plant>();
                 if (p != null) onPlant = onPlant ?? p;
-                else if (((1 << col.gameObject.layer) & Solid) != 0) blocker = blocker ?? Utils.GetPrefabName(col.transform.root.gameObject);
+                else if (((1 << col.gameObject.layer) & Solid) != 0)
+                    blocker = blocker ?? (Rocks.Breakable(col) is Component rock ? Rocks.Name(rock) : Utils.GetPrefabName(col.transform.root.gameObject));
             }
 
             if (onPickable != null)

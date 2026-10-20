@@ -4,12 +4,18 @@ using UnityEngine;
 
 namespace AutoVerk.Skills.Basic
 {
-    /// <summary>Walk or run in a straight line to a point or an object. Jumps when stuck, gives up after that.</summary>
+    /// <summary>
+    /// Walk or run in a straight line to a point or an object. Jumps when stuck (unless the player turned that
+    /// off), gives up after that.
+    /// </summary>
     public sealed class MoveTo : Primitive
     {
         private const float StuckSeconds = 1.5f;
         private const float Timeout = 30f;
         private const int MaxJumps = 2;
+
+        /// <summary>The Settings tab's "Jump when stuck": off, a walk that gets stuck gives up at once.</summary>
+        public static bool JumpWhenStuck = true;
 
         private readonly Vector3 _point;
         private readonly Component _target;
@@ -21,12 +27,13 @@ namespace AutoVerk.Skills.Basic
         private double _closestAt;
         private int _jumps;
 
-        public MoveTo(Vector3 point, float stopAt = 0.5f, bool run = false)
+        /// <param name="name">What's there, for the status: "spot 6".</param>
+        public MoveTo(Vector3 point, float stopAt = 0.5f, bool run = false, string name = null)
         {
             _point = point;
             _stopAt = stopAt;
             _run = run;
-            _name = "the point";
+            _name = name ?? "the point";
         }
 
         public MoveTo(Component target, float stopAt = 1.5f, bool run = false)
@@ -65,7 +72,7 @@ namespace AutoVerk.Skills.Basic
             }
             else if (Elapsed - _closestAt > StuckSeconds)
             {
-                if (_jumps >= MaxJumps) return Result.Fail("stuck", $"no closer for {StuckSeconds} s, {distance:0.0} m from {_name}");
+                if (!JumpWhenStuck || _jumps >= MaxJumps) return Result.Fail("stuck", $"no closer for {StuckSeconds} s, {distance:0.0} m from {_name}");
                 _jumps++;
                 _closestAt = Elapsed;
                 Body.Jump();

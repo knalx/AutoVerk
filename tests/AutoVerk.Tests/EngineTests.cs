@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using AutoVerk.Engine;
 using Xunit;
 
@@ -44,6 +45,7 @@ namespace AutoVerk.Tests
         public static Step FailStep(string code) => Fail(code, "because");
         public static Step PauseStep(string reason) => Pause(reason);
         public static Step WaitStep(double s) => Wait(s);
+        public void Fact(string label, string value) => SetFact(label, value);
     }
 
     internal sealed class Guard : IGuard
@@ -288,6 +290,18 @@ namespace AutoVerk.Tests
             Assert.Equal("radius must be a number, not 'far'", error);
             Assert.Null(Args.Check(Info(), new Dictionary<string, string> { ["crop"] = "Carrot", ["size"] = "3" }, out error));
             Assert.StartsWith("unknown parameter size", error);
+        }
+
+        [Fact]
+        public void FactsKeepTheirPlaceAsTheyChange()
+        {
+            var script = new Script(_ => new Step[0]);
+            script.Fact("Spot", "1 of 20");
+            script.Fact("Planted", "0");
+            script.Fact("Spot", "2 of 20");
+            Assert.Equal(new[] { "Spot=2 of 20", "Planted=0" }, script.Facts.Select(f => $"{f.Key}={f.Value}"));
+            script.Fact("Spot", null);
+            Assert.Equal(new[] { "Planted=0" }, script.Facts.Select(f => $"{f.Key}={f.Value}"));
         }
 
         [Fact]
