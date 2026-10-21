@@ -74,6 +74,8 @@ namespace AutoVerk.Ui
             public string Id;
             public string Section;
             public string Label;
+            /// <summary>What it does, in grey right under the checkbox.</summary>
+            public string Note;
             public Func<bool> On;
             public Action<bool> SetOn;
         }
@@ -125,6 +127,10 @@ namespace AutoVerk.Ui
         private readonly Actions _actions;
         private readonly SkillForm _form;
         private Vector2 _corner;
+        /// <summary>The corner last saved to the config.</summary>
+        private Vector2 _saved;
+        /// <summary>The player has put the window somewhere; until then it goes under the minimap.</summary>
+        private bool _placed;
         private Tab _tab;
         private GameObject _canvas;
         private GameObject _panel;
@@ -154,8 +160,7 @@ namespace AutoVerk.Ui
         private GameObject _start;
         private GameObject _settingsGroup;
         private string _settingsKey;
-        private readonly List<(Setting setting, Text label, Toggle check)> _settingRows = new List<(Setting, Text, Toggle)>();
-        private Text _settingsNote;
+        private readonly List<(Setting setting, Text label, Toggle check, Text note)> _settingRows = new List<(Setting, Text, Toggle, Text)>();
 
         // Running, paused, finished
         private GameObject _statusGroup;
@@ -168,11 +173,13 @@ namespace AutoVerk.Ui
         private GameObject _right;
         private Text _footnote;
 
-        public Window(Actions actions, SkillForm form, Vector2 corner)
+        /// <param name="corner">Where the player dragged it last, or null for under the minimap.</param>
+        public Window(Actions actions, SkillForm form, Vector2? corner)
         {
             _actions = actions;
             _form = form;
-            _corner = corner;
+            _placed = corner != null;
+            _corner = _saved = corner ?? Vector2.zero;
         }
 
         public bool Visible => _panel != null && _panel.activeSelf;
@@ -470,35 +477,51 @@ namespace AutoVerk.Ui
             {
                 _settingsKey = key;
                 foreach (Transform child in _settingsGroup.transform)
-                    if (child != _settingsNote.transform) UnityEngine.Object.Destroy(child.gameObject);
+                    UnityEngine.Object.Destroy(child.gameObject);
                 _settingRows.Clear();
                 foreach (var s in v.Settings)
                 {
                     var setting = s;
                     if (setting.Section != null && setting.Section != _settingRows.LastOrDefault().setting?.Section)
-                        _settingRows.Add((null, Label(_settingsGroup.transform, Spaced(setting.Section), 13, GUIManager.Instance.ValheimOrange), null));
+                        _settingRows.Add((null, Label(_settingsGroup.transform, Spaced(setting.Section), 13, GUIManager.Instance.ValheimOrange), null, null));
                     var label = Label(_settingsGroup.transform, setting.Label, 15, Color.white);
                     var check = Check(_settingsGroup.transform, on => setting.SetOn(on));
-                    _settingRows.Add((setting, label, check));
+                    Text note = null;
+                    if (setting.Note != null)
+                    {
+                        note = Label(_settingsGroup.transform, setting.Note, 13, Grey);
+                        note.alignment = TextAnchor.UpperLeft;
+                    }
+                    _settingRows.Add((setting, label, check, note));
                 }
             }
             float inner = Width - 2 * Pad;
-            foreach (var (setting, label, check) in _settingRows)
+            bool first = true;
+            foreach (var (setting, label, check, note) in _settingRows)
             {
                 if (setting == null)
                 {
-                    // A section's heading.
+                    // A section's heading: close over its rows (their labels sit mid-row, a few pixels down), with
+                    // more room above it to part it from the section before.
+                    if (!first) y -= 8f;
                     Put(label, Pad, y, inner, 22f);
-                    y -= 28f;
+                    y -= 16f;
+                    first = false;
                     continue;
                 }
+                first = false;
                 Put(label, Pad, y, inner - 40f, RowHeight);
                 Put(check, Pad + inner - 28f, y - 3f, 28f, 28f);
                 if (check.isOn != setting.On()) check.SetIsOnWithoutNotify(setting.On());
-                y -= Row;
+                if (note == null)
+                {
+                    y -= Row;
+                    continue;
+                }
+                // The note sits tight under its checkbox's label, with the usual gap before the next row.
+                y -= RowHeight - 6f;
+                y -= PutText(note, Pad, y, inner - 40f) + Row - RowHeight;
             }
-            y -= 6f;
-            y -= PutText(_settingsNote, Pad, y, inner);
             return -(y - Pad);
         }
 
@@ -582,7 +605,9 @@ namespace AutoVerk.Ui
             var root = gui != null ? Canvas() : null;
             if (root == null) return;
 
-            // Back on screen if the resolution or the GUI scale changed since the corner was saved.
+            // Under the minimap until the player drags it somewhere; back on screen if the resolution or the GUI
+            // scale changed since the corner was saved.
+            if (!_placed) _corner = RunCorner();
             var screen = CanvasSize();
             _corner.x = Mathf.Clamp(_corner.x, -Math.Max(Width, screen.x) + Width, 0f);
             _corner.y = Mathf.Clamp(_corner.y, -Math.Max(400f, screen.y) + 60f, 0f);
@@ -639,10 +664,6 @@ namespace AutoVerk.Ui
             _start = Button(f, "Start", () => _actions.Start?.Invoke());
 
             _settingsGroup = Group(f, "Settings");
-            _settingsNote = Label(_settingsGroup.transform,
-                "Interruptions step in during any run when something happens, then the run carries on. Without jumping, " +
-                "a walk that gets stuck gives up at once.", 14, Grey);
-            _settingsNote.alignment = TextAnchor.UpperLeft;
 
             _statusGroup = Group(_panel.transform, "Status");
             var s = _statusGroup.transform;
@@ -664,9 +685,18 @@ namespace AutoVerk.Ui
         private void Resize(Vector2 size, bool compact)
         {
             var rt = (RectTransform)_panel.transform;
+            // The full window stays where it was dragged: a corner that moved since the last redraw was dragged.
+            // It's saved when the window hides, not on every redraw. Never dragged, it sits under the minimap.
+            var current = rt.anchoredPosition + rt.sizeDelta / 2f;
+            if (!_compact && (current - _corner).sqrMagnitude >= 1f)
+            {
+                _corner = current;
+                _placed = true;
+            }
+            if (!_placed) _corner = RunCorner();
+            if (compact && !_compact) RememberCorner();
             var corner = compact ? RunCorner() : _corner;
             if (compact == _compact && rt.sizeDelta == size && (rt.anchoredPosition + size / 2f - corner).sqrMagnitude < 1f) return;
-            if (compact && !_compact) RememberCorner();
             _compact = compact;
             rt.sizeDelta = size;
             rt.anchoredPosition = corner - size / 2f;
@@ -676,11 +706,11 @@ namespace AutoVerk.Ui
         /// <summary>The full window's place, where the player dragged it. The run block has its own fixed place.</summary>
         private void RememberCorner()
         {
-            if (_compact) return;
+            if (_compact || !_placed) return;
             var rt = (RectTransform)_panel.transform;
             var corner = rt.anchoredPosition + rt.sizeDelta / 2f;
-            if ((corner - _corner).sqrMagnitude < 1f) return;
-            _corner = corner;
+            if ((corner - _saved).sqrMagnitude < 1f) return;
+            _corner = _saved = corner;
             _actions.Moved?.Invoke(corner);
         }
 
@@ -830,6 +860,8 @@ namespace AutoVerk.Ui
             t.horizontalOverflow = HorizontalWrapMode.Wrap;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.supportRichText = true;
+            // Text doesn't catch the mouse, so a drag on it moves the window.
+            t.raycastTarget = false;
             return t;
         }
 
@@ -892,6 +924,7 @@ namespace AutoVerk.Ui
             var go = new GameObject("Divider", typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             go.GetComponent<Image>().color = new Color(0f, 0f, 0f, 0.35f);
+            go.GetComponent<Image>().raycastTarget = false;
             return (RectTransform)go.transform;
         }
 
@@ -901,6 +934,7 @@ namespace AutoVerk.Ui
             var go = new GameObject("Box", typeof(RectTransform), typeof(Image));
             go.transform.SetParent(parent, false);
             go.GetComponent<Image>().color = new Color(0.08f, 0.06f, 0.05f, 0.8f);
+            go.GetComponent<Image>().raycastTarget = false;
             var outline = go.AddComponent<Outline>();
             outline.effectColor = new Color(0f, 0f, 0f, 0.5f);
             return (RectTransform)go.transform;

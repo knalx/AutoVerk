@@ -19,6 +19,19 @@ namespace AutoVerk.Game
         }
     }
 
+    /// <summary>A pack heavier than the character can carry ends the run, unless the player turned that off.</summary>
+    internal sealed class OverweightGuard : IGuard
+    {
+        /// <summary>The Settings tab's "Stop when overweight".</summary>
+        public static bool Enabled = true;
+
+        public GuardHit Check()
+        {
+            var player = Senses.Player;
+            return Enabled && player != null && player.IsEncumbered() ? GuardHit.End("overweight", "you're overweight") : null;
+        }
+    }
+
     /// <summary>A game menu, the inventory, the map or the chat pauses the run.</summary>
     internal sealed class MenuGuard : IGuard
     {

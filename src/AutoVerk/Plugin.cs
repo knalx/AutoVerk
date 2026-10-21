@@ -35,6 +35,7 @@ namespace AutoVerk
         /// <summary>On or off for each interruption (reflex), by id; other mods' ones are added as they show up.</summary>
         private readonly Dictionary<string, ConfigEntry<bool>> _interruptions = new Dictionary<string, ConfigEntry<bool>>();
         private ConfigEntry<bool> _jumpWhenStuck;
+        private ConfigEntry<bool> _stopWhenOverweight;
         private SkillForm _form;
         private Window _window;
         private float _nextRefresh;
@@ -55,16 +56,21 @@ namespace AutoVerk
         private void Awake()
         {
             Log = Logger;
-            _windowKey = Config.Bind("Window", "Key", new KeyboardShortcut(KeyCode.F7), "Opens and closes the window.");
-            _windowPosition = Config.Bind("Window", "Position", "-20, -100",
-                "The window's top-right corner, from the screen's top-right corner. Saved when you move it.");
+            _windowKey = Config.Bind("Window", "Key", new KeyboardShortcut(KeyCode.F7),
+                "Opens and closes the window. A Unity key name, then any modifiers: F8, or K + LeftAlt.");
+            _windowPosition = Config.Bind("Window", "Position", "",
+                "The window's top-right corner, from the screen's top-right corner. Empty: under the minimap. Saved when you drag it.");
             _lastStart = Config.Bind("Window", "LastStart", "", "The window's last start, as a console line. Filled in next time.");
             _jumpWhenStuck = Config.Bind("Movement", "JumpWhenStuck", true,
                 "Jump (twice) when stuck on the way before giving up. Off: give up at once.");
             MoveTo.JumpWhenStuck = _jumpWhenStuck.Value;
+            _stopWhenOverweight = Config.Bind("Run", "StopWhenOverweight", true,
+                "Stop any task when your pack gets heavier than you can carry.");
+            OverweightGuard.Enabled = _stopWhenOverweight.Value;
 
             Runner = new Runner(() => Time.timeAsDouble, text => Log.LogInfo(text));
             Runner.Guards.Add(new PlayerGuard());
+            Runner.Guards.Add(new OverweightGuard());
             Runner.Guards.Add(new HumanInputGuard(_windowKey));
             Runner.Guards.Add(new MenuGuard());
 
@@ -276,6 +282,7 @@ namespace AutoVerk
                             Id = r.Id,
                             Section = "Interruptions",
                             Label = r.Description,
+                            Note = "Steps in during any task, then the task goes on.",
                             On = () => entry.Value,
                             SetOn = on => r.Enabled = entry.Value = on,
                         });
@@ -285,8 +292,18 @@ namespace AutoVerk
                         Id = "jump",
                         Section = "Movement",
                         Label = "Jump when stuck on the way",
+                        Note = "Off: the hero gives up on a spot as soon as something blocks the way.",
                         On = () => _jumpWhenStuck.Value,
                         SetOn = on => MoveTo.JumpWhenStuck = _jumpWhenStuck.Value = on,
+                    });
+                    v.Settings.Add(new Window.Setting
+                    {
+                        Id = "overweight",
+                        Section = "Any task",
+                        Label = "Stop when overweight",
+                        Note = "Ends the task as soon as your pack is heavier than you can carry.",
+                        On = () => _stopWhenOverweight.Value,
+                        SetOn = on => OverweightGuard.Enabled = _stopWhenOverweight.Value = on,
                     });
                     break;
             }
@@ -347,14 +364,19 @@ namespace AutoVerk
             return true;
         }
 
-        private static Vector2 ParseCorner(string text)
+        /// <summary>
+        /// The saved corner, or null for under the minimap: empty, unreadable, or the old default (-20, -100) that
+        /// was saved before the window could be dragged.
+        /// </summary>
+        private static Vector2? ParseCorner(string text)
         {
             var parts = (text ?? "").Split(',');
             if (parts.Length == 2 &&
                 float.TryParse(parts[0].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var x) &&
-                float.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var y))
+                float.TryParse(parts[1].Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out var y) &&
+                !(x == -20f && y == -100f))
                 return new Vector2(x, y);
-            return new Vector2(-20f, -100f);
+            return null;
         }
 
         private void OnDestroy()
