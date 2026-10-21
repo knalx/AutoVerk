@@ -104,9 +104,13 @@ your own BepInEx plugin with `[BepInDependency(AutoVerk.Plugin.Guid)]`.
   `Summary` box get the form's values as they stand. While it runs, a skill sets `Subject` and
   `SetFact("Planted", "4")`; once done, `Headline`, `Advice` and `AgainLine`/`AgainLabel` ("Fill the rest").
 - To show where a skill would work before it starts, set `Preview = args => …`: stand `Markers.Pole`s on
-  the ground and return a line saying what you found. The window then offers a Preview button.
+  the ground and return a line saying what you found. The window then offers a Preview button (its text is
+  `PreviewText`), and `autoverk preview` prints the line.
 - To offer values in a dropdown, add `.WithSuggestions(() => seeds, "anything")` to a parameter; the second
-  argument names the empty value, if it means something.
+  argument names the empty value, if it means something. `.WithNames(v => …)` says how the window shows a
+  value.
+- `.WithButton(label, press, shown, confirm, clears)` puts a button beside a parameter's box, like Delete for
+  a saved field: `press` says what it did, `confirm` makes the first press only ask, `clears` empties the box.
 
 ## Failure codes
 

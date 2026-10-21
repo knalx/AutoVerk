@@ -5,13 +5,14 @@ One BepInEx plugin on Jotunn. Everything runs on Unity's main thread.
 ```
 src/AutoVerk/
   Engine/    Skill, Result, Runner, Registry   plain C#, no Unity, unit-tested
-  Game/      Senses (reads the game), Body (presses the controls)
+  Game/      Senses (reads the game), Body (presses the controls), guards, preview markers
   Skills/    built-in skills and reflexes
   Ui/        window and console commands
 tests/AutoVerk.Tests/
 ```
 
-The UI only talks to the Runner and the Registry, so adding a skill never touches it.
+The window and the console find skills in the Registry and run them through the Runner, so adding a skill
+never touches them.
 
 ## Skills
 
@@ -30,9 +31,10 @@ Most new skills should be composites.
 The Runner runs one skill tree. Only its deepest skill, a primitive, works the game. Each frame:
 
 1. Clear last frame's controls.
-2. **Guards:** your input or an open menu pauses the run; death or leaving the world stops it.
-3. **Reflexes:** checks like *a monster is in reach*. One that fires runs its skill (`fight_back`) on top of
-   the tree, then the interrupted primitive starts again.
+2. **Guards:** your input or an open menu pauses the run; death, leaving the world or a pack too heavy to
+   carry (unless turned off) ends it.
+3. **Reflexes:** checks like *a monster is in reach*. One that fires runs its skill (`fight_back` runs
+   `fight`) on top of the tree, then the interrupted primitive starts again.
 4. Tick the working primitive. When it ends, its parent continues.
 
 Resume after a pause restarts the interrupted primitive, which checks its target again.
