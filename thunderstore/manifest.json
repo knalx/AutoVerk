@@ -2,7 +2,7 @@
   "name": "AutoVerk",
   "version_number": "0.1.0",
   "website_url": "https://github.com/knalx/AutoVerk",
-  "description": "Does chores for you: picks up what's lying around and plants whole fields. Plays by the game's rules, pressing the same controls you would. Press any key to take control back.",
+  "description": "Does chores for you: gathers ripe crops and berries and plants whole fields. Plays by the game's rules, pressing the same controls you would. Press any key to take control back.",
   "dependencies": [
     "denikson-BepInExPack_Valheim-5.4.2351",
     "ValheimModding-Jotunn-2.30.2"
